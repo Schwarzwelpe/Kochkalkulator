@@ -15,7 +15,23 @@
 </style>
 </head>
 <body>
-<div id="root"></div>
+<div id="root">
+  <div class="login-screen"><div>Lade App...</div></div>
+</div>
+
+<script>
+  window.addEventListener("error", function(e) {
+    document.getElementById("root").innerHTML =
+      '<div class="login-screen"><div style="color:#f87171;max-width:500px;word-break:break-word;">Fehler beim Laden:<br>' +
+      (e.message || "Unbekannter Fehler") + '<br><br>Datei: ' + (e.filename || "?") + ' Zeile: ' + (e.lineno || "?") +
+      '</div></div>';
+  });
+  window.addEventListener("unhandledrejection", function(e) {
+    document.getElementById("root").innerHTML =
+      '<div class="login-screen"><div style="color:#f87171;max-width:500px;word-break:break-word;">Fehler (Promise):<br>' +
+      (e.reason && e.reason.message ? e.reason.message : String(e.reason)) + '</div></div>';
+  });
+</script>
 
 <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
