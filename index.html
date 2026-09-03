@@ -140,7 +140,11 @@ function dbxDownload(accessToken, path) {
     }
   }).then(function (res) {
     if (res.status === 409) return null;
-    if (!res.ok) throw new Error("Download fehlgeschlagen: " + res.status);
+    if (!res.ok) {
+      return res.text().then(function (body) {
+        throw new Error("Download fehlgeschlagen: " + res.status + " \u2014 " + body);
+      });
+    }
     return res.text();
   });
 }
@@ -155,7 +159,11 @@ function dbxUpload(accessToken, path, content) {
     },
     body: content
   }).then(function (res) {
-    if (!res.ok) throw new Error("Upload fehlgeschlagen: " + res.status);
+    if (!res.ok) {
+      return res.text().then(function (body) {
+        throw new Error("Upload fehlgeschlagen: " + res.status + " \u2014 " + body);
+      });
+    }
     return res.json();
   });
 }
