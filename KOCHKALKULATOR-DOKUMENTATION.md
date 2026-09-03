@@ -130,12 +130,29 @@ Ursprünglich lief der Kalkulator als React-Artefakt direkt in einem Claude-Chat
 
 ---
 
-## 8. Geplant, aber noch nicht umgesetzt
+## 8. Direkter Git-Push durch Claude — Status: eingerichtet
 
-**Direkter Git-Push durch Claude**, damit Rod Änderungen nur noch per Zuruf machen muss, ohne selbst bei GitHub hochzuladen:
-- Rod müsste einen **Fine-grained Personal Access Token** erstellen (github.com/settings/tokens), beschränkt auf das Repo "Kochkalkulator", Berechtigung "Contents: Read and write"
-- Claude nutzt den Token dann für `git push` direkt aus der Sandbox
-- **Wichtig:** Dieser Token wird NICHT dauerhaft in Claudes Gedächtnis gespeichert (Sicherheitsprinzip). Rod muss ihn in jeder neuen Unterhaltung, in der Code-Änderungen gewünscht sind, erneut mitteilen, oder die gesamte Wartung findet in einer einzigen langlaufenden Unterhaltung statt.
+Rod hat einen **Fine-grained Personal Access Token** erstellt (github.com/settings/tokens), beschränkt auf das Repo "Kochkalkulator", Berechtigung "Contents: Read and write", **kein Ablaufdatum**. Damit kann Claude direkt per `git push` Code-Änderungen ausliefern, Rod muss nichts mehr manuell hochladen.
+
+**Wo der Token liegt:** in Rods eigenem Passwort-Manager. Er ist NICHT in dieser Doku, in Claudes Gedächtnis oder sonst irgendwo dauerhaft gespeichert (bewusstes Sicherheitsprinzip).
+
+**Wichtig für eine neue Claude-Instanz / neuen Chat:** Der Token gilt nur innerhalb der Unterhaltung, in der Rod ihn mitteilt. In einem neuen Chat hat Claude den Token nicht mehr. Wenn Rod dort Code-Änderungen will, muss er den Token aus seinem Passwort-Manager erneut hier einfügen.
+
+**So läuft ein Push ab, sobald der Token im Chat vorliegt:**
+```bash
+cd /home/claude
+git clone https://<TOKEN>@github.com/Schwarzwelpe/Kochkalkulator.git kochkalkulator-repo
+cd kochkalkulator-repo
+git config user.email "rod@example.com"
+git config user.name "Rod (via Claude)"
+# Datei(en) aktualisieren...
+git add .
+git commit -m "Kurze Beschreibung der Änderung"
+git push origin main
+```
+GitHub Pages baut danach automatisch neu, meist innerhalb 1–2 Minuten live.
+
+**Nicht vergessen:** vor dem Commit immer die JS-Syntax mit `node --check` prüfen (siehe Abschnitt 6.2) und `APP_VERSION` hochzählen.
 
 ---
 
