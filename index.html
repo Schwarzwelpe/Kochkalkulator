@@ -25,7 +25,10 @@
 
 function showError(title, detail) {
   document.getElementById("root").innerHTML =
-    '<div class="login-screen"><div class="err-box"><strong>' + title + '</strong><br>' + detail + '</div></div>';
+    '<div class="login-screen"><div class="err-box"><strong>' + title + '</strong><br>' + detail + '</div>' +
+    '<button class="login-btn" id="errLogoutBtn" style="background:#334155;">Abmelden &amp; neu versuchen</button></div>';
+  var btn = document.getElementById("errLogoutBtn");
+  if (btn) btn.addEventListener("click", function () { clearTokens(); window.location.href = REDIRECT_URI; });
 }
 window.addEventListener("error", function (e) {
   showError("Fehler beim Laden:", (e.message || "Unbekannter Fehler") + "<br>Zeile: " + (e.lineno || "?"));
