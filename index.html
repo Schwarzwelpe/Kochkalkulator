@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Rod's Kochkalkulator</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0f1117; color: #e2e8f0; font-family: 'Inter', sans-serif; font-size: 14px; }
+  #root { min-height: 100vh; }
+  .login-screen { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100vh; padding:24px; text-align:center; }
+  .login-btn { background:#0061fe; color:#fff; border:none; border-radius:8px; padding:14px 24px; font-size:15px; font-weight:600; cursor:pointer; margin-top:20px; }
+  .status-text { color:#64748b; font-size:13px; margin-top:12px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useCallback } = React;
+
+// ============ KONFIGURATION ============
+const DROPBOX_APP_KEY = "nns9uy3os0aolu9";
+const REDIRECT_URI = window.location.origin + window.location.pathname;
+const DATA_FILE_PATH = "/kochkalkulator-daten.json";
+
+// ============ PKCE HELFER ============
+function base64UrlEncode(buffer) {
+  return btoa(String.fromCharCode(...new Uint8Array(buffer)))
+    .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+async function sha256(plain) {
+  const data = new TextEncoder().encode(plain);
+  return await window.crypto.subtle.digest("SHA-256", data);
+}
+function randomString(len) {
+  const arr = new Uint8Array(len);
+  window.crypto.getRandomValues(arr);
+  return base64UrlEncode(arr.buffer).slice(0, len);
+}
+
+// ============ DROPBOX AUTH ============
+async function startDropboxLogin() {
+  const verifier = randomString(64);
+  sessionStorage.setItem("dbx_verifier", verifier);
+  const challenge = base64UrlEncode(await sha256(verifier));
+  const params = new URLSearchParams({
+    client_id: DROPBOX_APP_KEY,
+    redirect_uri: REDIRECT_URI,
+    response_type: "code",
+    code_challenge: challenge,
+    code_challenge_method: "S256",
+    token_access_type: "offline",
+  });
+  window.location.href = "https://www.dropbox.com/oauth2/authorize?" + params.toString();
+}
+
+async function exchangeCodeForToken(code) {
+  const verifier = sessionStorage.getItem("dbx_verifier");
+  const params = new URLSearchParams({
+    code,
+    grant_type: "authorization_code",
+    client_id: DROPBOX_APP_KEY,
+    redirect_uri: REDIRECT_URI,
+    code_verifier: verifier,
+  });
+  const res = await fetch("https://api.dropboxapi.com/oauth2/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: params.toString(),
+  });
+  if (!res.ok) throw new Error("Token-Austausch fehlgeschlagen: " + res.status);
+  return await res.json();
+}
+
+async function refreshAccessToken(refreshToken) {
+  const params = new URLSearchParams({
+    grant_type: "refresh_token",
+    refresh_token: refreshToken,
+    client_id: DROPBOX_APP_KEY,
+  });
+  const res = await fetch("https://api.dropboxapi.com/oauth2/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: params.toString(),
+  });
+  if (!res.ok) throw new Error("Token-Refresh fehlgeschlagen: " + res.status);
+  return await res.json();
+}
+
+function saveTokens(tokens) {
+  const stored = {
+    access_token: tokens.access_token,
+    refresh_token: tokens.refresh_token || JSON.parse(localStorage.getItem("dbx_tokens") || "{}").refresh_token,
+    expires_at: Date.now() + (tokens.expires_in * 1000),
+  };
+  localStorage.setItem("dbx_tokens", JSON.stringify(stored));
+  return stored;
+}
+function loadTokens() {
+  try { return JSON.parse(localStorage.getItem("dbx_tokens")); } catch { return null; }
+}
+function clearTokens() { localStorage.removeItem("dbx_tokens"); }
+
+async function getValidAccessToken() {
+  let tokens = loadTokens();
+  if (!tokens) return null;
+  if (Date.now() < tokens.expires_at - 60000) return tokens.access_token;
+  const fresh = await refreshAccessToken(tokens.refresh_token);
+  const saved = saveTokens(fresh);
+  return saved.access_token;
+}
+
+// ============ DROPBOX DATEI-ZUGRIFF ============
+async function dbxDownload(accessToken, path) {
+  const res = await fetch("https://content.dropboxapi.com/2/files/download", {
+    method: "POST",
+    headers: {
+      "Authorization": "Bearer " + accessToken,
+      "Dropbox-API-Arg": JSON.stringify({ path }),
+    },
+  });
+  if (res.status === 409) return null; // Datei existiert noch nicht
+  if (!res.ok) throw new Error("Download fehlgeschlagen: " + res.status);
+  return await res.text();
+}
+
+async function dbxUpload(accessToken, path, content) {
+  const res = await fetch("https://content.dropboxapi.com/2/files/upload", {
+    method: "POST",
+    headers: {
+      "Authorization": "Bearer " + accessToken,
+      "Dropbox-API-Arg": JSON.stringify({ path, mode: "overwrite", mute: true }),
+      "Content-Type": "application/octet-stream",
+    },
+    body: content,
+  });
+  if (!res.ok) throw new Error("Upload fehlgeschlagen: " + res.status);
+  return await res.json();
+}
+
+// ============ HAUPT-APP ============
+function App() {
+  const [phase, setPhase] = useState("checking"); // checking | login | ready | error
+  const [errorMsg, setErrorMsg] = useState("");
+  const [accessToken, setAccessToken] = useState(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        // Fall 1: wir kommen gerade von Dropbox zurück (Redirect mit ?code=...)
+        const urlParams = new URLSearchParams(window.location.search);
+        const code = urlParams.get("code");
+        if (code) {
+          const tokens = await exchangeCodeForToken(code);
+          saveTokens(tokens);
+          window.history.replaceState({}, "", REDIRECT_URI); // URL sauber machen
+          setAccessToken(tokens.access_token);
+          setPhase("ready");
+          return;
+        }
+        // Fall 2: schon eingeloggt von früher
+        const token = await getValidAccessToken();
+        if (token) {
+          setAccessToken(token);
+          setPhase("ready");
+        } else {
+          setPhase("login");
+        }
+      } catch (e) {
+        setErrorMsg(e.message);
+        setPhase("error");
+      }
+    })();
+  }, []);
+
+  if (phase === "checking") {
+    return <div className="login-screen"><div>Lade...</div></div>;
+  }
+
+  if (phase === "login") {
+    return (
+      <div className="login-screen">
+        <div style={{fontSize:20, fontWeight:600}}>🍲 Rod's Kochkalkulator</div>
+        <div className="status-text">Verbinde dich mit Dropbox, um deine Rezepte zu speichern.</div>
+        <button className="login-btn" onClick={startDropboxLogin}>Mit Dropbox verbinden</button>
+      </div>
+    );
+  }
+
+  if (phase === "error") {
+    return (
+      <div className="login-screen">
+        <div style={{color:"#f87171"}}>Fehler: {errorMsg}</div>
+        <button className="login-btn" onClick={() => { clearTokens(); window.location.href = REDIRECT_URI; }}>Neu versuchen</button>
+      </div>
+    );
+  }
+
+  return <MainApp accessToken={accessToken} onLogout={() => { clearTokens(); window.location.reload(); }} />;
+}
+
+// Platzhalter für die eigentliche App (Rechner/Rezepte/DB/Backup) — kommt im nächsten Schritt
+function MainApp({ accessToken, onLogout }) {
+  const [status, setStatus] = useState("Verbunden mit Dropbox ✅");
+  return (
+    <div style={{padding:20}}>
+      <div style={{fontSize:18, fontWeight:600, marginBottom:8}}>🍲 Rod's Kochkalkulator</div>
+      <div className="status-text">{status}</div>
+      <div style={{marginTop:20, color:"#94a3b8"}}>
+        Grundgerüst steht: Login funktioniert, Verbindung zu Dropbox steht.
+        Der eigentliche Rechner/Rezepte-Teil kommt im nächsten Schritt oben drauf.
+      </div>
+      <button className="login-btn" style={{background:"#334155", marginTop:20}} onClick={onLogout}>Abmelden</button>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
