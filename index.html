@@ -7,7 +7,9 @@
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: #0f1117; color: #e2e8f0; font-family: 'Inter', sans-serif; font-size: 14px; }
+  body { background: #0f1117; color: #e2e8f0; font-family: 'Inter', sans-serif; font-size: 14px; overflow-x: hidden; }
+  html { overflow-x: hidden; width: 100%; }
+  select, input { min-width: 0; width: 100%; }
   #root { min-height: 100vh; }
   .login-screen { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100vh; padding:24px; text-align:center; }
   .login-btn { background:#0061fe; color:#fff; border:none; border-radius:8px; padding:14px 24px; font-size:15px; font-weight:600; cursor:pointer; margin-top:20px; }
