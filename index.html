@@ -39,6 +39,7 @@ window.addEventListener("unhandledrejection", function (e) {
   showError("Fehler (Promise):", e.reason && e.reason.message ? e.reason.message : String(e.reason));
 });
 
+var APP_VERSION = "1.1.0";
 var DROPBOX_APP_KEY = "nns9uy3os0aolu9";
 var REDIRECT_URI = window.location.origin + window.location.pathname;
 var DATA_FILE_PATH = "/kochkalkulator-daten.json";
@@ -177,6 +178,7 @@ function renderLogin() {
   document.getElementById("root").innerHTML =
     '<div class="login-screen">' +
       '<div style="font-size:20px;font-weight:600;">\u{1F372} Rod\'s Kochkalkulator</div>' +
+      '<div style="font-size:10px;color:#64748b;font-family:monospace;margin-top:4px;">v' + APP_VERSION + '</div>' +
       '<div class="status-text">Verbinde dich mit Dropbox, um deine Rezepte zu speichern.</div>' +
       '<button class="login-btn" id="loginBtn">Mit Dropbox verbinden</button>' +
     '</div>';
@@ -185,39 +187,39 @@ function renderLogin() {
 
 // ============ STANDARD-DATEN ============
 var DEFAULT_DB = [
-  { id: 1,  num: 1,  name: "Basmati-Reis Oryza",                 kcal: 354, protein: 9.0,  carbs: 77.0, fat: 1.0 },
-  { id: 2,  num: 2,  name: "Berglinsen (roh)",                   kcal: 337, protein: 25.0, carbs: 50.0, fat: 1.7 },
-  { id: 3,  num: 3,  name: "Bohnen, wei\u00df (Dose, abgetropft)", kcal: 95,  protein: 6.3,  carbs: 14.0, fat: 0.5 },
-  { id: 4,  num: 4,  name: "Butter",                              kcal: 741, protein: 0.7,  carbs: 0.6,  fat: 81.0 },
-  { id: 5,  num: 5,  name: "Ei (roh)",                            kcal: 155, protein: 13.0, carbs: 0.7,  fat: 11.0 },
-  { id: 6,  num: 6,  name: "Gem\u00fcse-Fond (J\u00fcrgen Langbein Bio)", kcal: 3, protein: 0.0, carbs: 0.6, fat: 0.0 },
-  { id: 7,  num: 7,  name: "Getrocknete Tomaten (in \u00d6l)",     kcal: 150, protein: 5.8,  carbs: 15.9, fat: 6.0 },
-  { id: 8,  num: 8,  name: "Hackfleisch (Rind, roh)",             kcal: 274, protein: 17.0, carbs: 0.0,  fat: 23.0 },
-  { id: 9,  num: 9,  name: "Hokkaido-K\u00fcrbis (roh)",           kcal: 63,  protein: 1.7,  carbs: 12.6, fat: 0.6 },
-  { id: 10, num: 10, name: "Karotten / M\u00f6hren (roh)",         kcal: 41,  protein: 0.9,  carbs: 9.6,  fat: 0.2 },
-  { id: 11, num: 11, name: "Karotten / M\u00f6hren (TK)",          kcal: 35,  protein: 0.8,  carbs: 7.0,  fat: 0.2 },
-  { id: 12, num: 12, name: "Kartoffeln, festkochend (roh)",       kcal: 72,  protein: 1.9,  carbs: 15.7, fat: 0.1 },
-  { id: 13, num: 13, name: "Kidney Bohnen (Dose, abgetropft)",    kcal: 92,  protein: 6.9,  carbs: 13.5, fat: 0.4 },
-  { id: 14, num: 14, name: "Knollensellerie (roh)",               kcal: 42,  protein: 1.5,  carbs: 9.2,  fat: 0.3 },
-  { id: 15, num: 15, name: "Knollensellerie (TK)",                kcal: 40,  protein: 1.4,  carbs: 8.5,  fat: 0.3 },
-  { id: 16, num: 16, name: "Mais (Dose, abgetropft)",             kcal: 86,  protein: 3.2,  carbs: 16.0, fat: 1.2 },
-  { id: 17, num: 17, name: "Milch (1,5%)",                        kcal: 46,  protein: 3.4,  carbs: 4.8,  fat: 1.5 },
-  { id: 18, num: 18, name: "Nudeln / Spaghetti (roh)",            kcal: 355, protein: 12.5, carbs: 71.0, fat: 1.5 },
-  { id: 19, num: 19, name: "Oliven\u00f6l",                       kcal: 884, protein: 0.0,  carbs: 0.0,  fat: 100.0 },
-  { id: 20, num: 20, name: "Paprika (rot, roh)",                  kcal: 31,  protein: 1.0,  carbs: 6.0,  fat: 0.3 },
-  { id: 21, num: 21, name: "Parmesan (gerieben)",                 kcal: 392, protein: 35.7, carbs: 0.0,  fat: 28.0 },
-  { id: 22, num: 22, name: "Pinienkerne",                         kcal: 673, protein: 13.7, carbs: 13.1, fat: 68.4 },
-  { id: 23, num: 23, name: "Rap\u00f6l",                          kcal: 884, protein: 0.0,  carbs: 0.0,  fat: 100.0 },
-  { id: 24, num: 24, name: "Rote Linsen BIO (Rewe)",              kcal: 341, protein: 26.0, carbs: 50.0, fat: 1.5 },
-  { id: 25, num: 25, name: "Schafsk\u00e4se / Feta",              kcal: 270, protein: 16.0, carbs: 0.5,  fat: 23.0 },
-  { id: 26, num: 26, name: "Sonnenblumen\u00f6l",                 kcal: 884, protein: 0.0,  carbs: 0.0,  fat: 100.0 },
-  { id: 27, num: 27, name: "Tomaten (gesch\u00e4lt, Dose)",       kcal: 20,  protein: 0.8,  carbs: 3.7,  fat: 0.5 },
-  { id: 28, num: 28, name: "Tomatenmark",                         kcal: 82,  protein: 4.5,  carbs: 14.0, fat: 0.5 },
-  { id: 29, num: 29, name: "Wei\u00dfbrot",                       kcal: 241, protein: 7.6,  carbs: 48.8, fat: 1.2 },
-  { id: 30, num: 30, name: "Zwiebeln (roh)",                      kcal: 40,  protein: 1.3,  carbs: 9.4,  fat: 0.1 },
-  { id: 31, num: 31, name: "Champignons (roh)",                   kcal: 22,  protein: 3.1,  carbs: 0.6,  fat: 0.3 },
-  { id: 32, num: 32, name: "Lauch / Porree (roh)",                kcal: 28,  protein: 1.6,  carbs: 3.6,  fat: 0.3 },
-  { id: 33, num: 33, name: "Zucker (Haushaltszucker)",            kcal: 400, protein: 0.0,  carbs: 100.0, fat: 0.0 }
+  { id: 1,  num: 1,  name: "Basmati-Reis Oryza",                 kcal: 354, protein: 9.0,  carbs: 77.0, fat: 1.0,  leu: 0.065 },
+  { id: 2,  num: 2,  name: "Berglinsen (roh)",                   kcal: 337, protein: 25.0, carbs: 50.0, fat: 1.7,  leu: 0.065 },
+  { id: 3,  num: 3,  name: "Bohnen, wei\u00df (Dose, abgetropft)", kcal: 95, protein: 6.3,  carbs: 14.0, fat: 0.5,  leu: 0.062 },
+  { id: 4,  num: 4,  name: "Butter",                              kcal: 741, protein: 0.7,  carbs: 0.6,  fat: 81.0, leu: 0.090 },
+  { id: 5,  num: 5,  name: "Ei (roh)",                            kcal: 155, protein: 13.0, carbs: 0.7,  fat: 11.0, leu: 0.086 },
+  { id: 6,  num: 6,  name: "Gem\u00fcse-Fond (J\u00fcrgen Langbein Bio)", kcal: 3, protein: 0.0, carbs: 0.6, fat: 0.0, leu: 0.0 },
+  { id: 7,  num: 7,  name: "Getrocknete Tomaten (in \u00d6l)",     kcal: 150, protein: 5.8,  carbs: 15.9, fat: 6.0,  leu: 0.058 },
+  { id: 8,  num: 8,  name: "Hackfleisch (Rind, roh)",             kcal: 274, protein: 17.0, carbs: 0.0,  fat: 23.0, leu: 0.082 },
+  { id: 9,  num: 9,  name: "Hokkaido-K\u00fcrbis (roh)",           kcal: 63,  protein: 1.7,  carbs: 12.6, fat: 0.6,  leu: 0.058 },
+  { id: 10, num: 10, name: "Karotten / M\u00f6hren (roh)",         kcal: 41,  protein: 0.9,  carbs: 9.6,  fat: 0.2,  leu: 0.058 },
+  { id: 11, num: 11, name: "Karotten / M\u00f6hren (TK)",          kcal: 35,  protein: 0.8,  carbs: 7.0,  fat: 0.2,  leu: 0.058 },
+  { id: 12, num: 12, name: "Kartoffeln, festkochend (roh)",       kcal: 72,  protein: 1.9,  carbs: 15.7, fat: 0.1,  leu: 0.060 },
+  { id: 13, num: 13, name: "Kidney Bohnen (Dose, abgetropft)",    kcal: 92,  protein: 6.9,  carbs: 13.5, fat: 0.4,  leu: 0.062 },
+  { id: 14, num: 14, name: "Knollensellerie (roh)",               kcal: 42,  protein: 1.5,  carbs: 9.2,  fat: 0.3,  leu: 0.058 },
+  { id: 15, num: 15, name: "Knollensellerie (TK)",                kcal: 40,  protein: 1.4,  carbs: 8.5,  fat: 0.3,  leu: 0.058 },
+  { id: 16, num: 16, name: "Mais (Dose, abgetropft)",             kcal: 86,  protein: 3.2,  carbs: 16.0, fat: 1.2,  leu: 0.120 },
+  { id: 17, num: 17, name: "Milch (1,5%)",                        kcal: 46,  protein: 3.4,  carbs: 4.8,  fat: 1.5,  leu: 0.095 },
+  { id: 18, num: 18, name: "Nudeln / Spaghetti (roh)",            kcal: 355, protein: 12.5, carbs: 71.0, fat: 1.5,  leu: 0.068 },
+  { id: 19, num: 19, name: "Oliven\u00f6l",                       kcal: 884, protein: 0.0,  carbs: 0.0,  fat: 100.0,leu: 0.0 },
+  { id: 20, num: 20, name: "Paprika (rot, roh)",                  kcal: 31,  protein: 1.0,  carbs: 6.0,  fat: 0.3,  leu: 0.058 },
+  { id: 21, num: 21, name: "Parmesan (gerieben)",                 kcal: 392, protein: 35.7, carbs: 0.0,  fat: 28.0, leu: 0.095 },
+  { id: 22, num: 22, name: "Pinienkerne",                         kcal: 673, protein: 13.7, carbs: 13.1, fat: 68.4, leu: 0.068 },
+  { id: 23, num: 23, name: "Rap\u00f6l",                          kcal: 884, protein: 0.0,  carbs: 0.0,  fat: 100.0,leu: 0.0 },
+  { id: 24, num: 24, name: "Rote Linsen BIO (Rewe)",              kcal: 341, protein: 26.0, carbs: 50.0, fat: 1.5,  leu: 0.065 },
+  { id: 25, num: 25, name: "Schafsk\u00e4se / Feta",              kcal: 270, protein: 16.0, carbs: 0.5,  fat: 23.0, leu: 0.090 },
+  { id: 26, num: 26, name: "Sonnenblumen\u00f6l",                 kcal: 884, protein: 0.0,  carbs: 0.0,  fat: 100.0,leu: 0.0 },
+  { id: 27, num: 27, name: "Tomaten (gesch\u00e4lt, Dose)",       kcal: 20,  protein: 0.8,  carbs: 3.7,  fat: 0.5,  leu: 0.058 },
+  { id: 28, num: 28, name: "Tomatenmark",                         kcal: 82,  protein: 4.5,  carbs: 14.0, fat: 0.5,  leu: 0.058 },
+  { id: 29, num: 29, name: "Wei\u00dfbrot",                       kcal: 241, protein: 7.6,  carbs: 48.8, fat: 1.2,  leu: 0.068 },
+  { id: 30, num: 30, name: "Zwiebeln (roh)",                      kcal: 40,  protein: 1.3,  carbs: 9.4,  fat: 0.1,  leu: 0.058 },
+  { id: 31, num: 31, name: "Champignons (roh)",                   kcal: 22,  protein: 3.1,  carbs: 0.6,  fat: 0.3,  leu: 0.065 },
+  { id: 32, num: 32, name: "Lauch / Porree (roh)",                kcal: 28,  protein: 1.6,  carbs: 3.6,  fat: 0.3,  leu: 0.058 },
+  { id: 33, num: 33, name: "Zucker (Haushaltszucker)",            kcal: 400, protein: 0.0,  carbs: 100.0,fat: 0.0,  leu: 0.0 }
 ];
 
 var DEFAULT_RECIPES = [];
@@ -237,8 +239,14 @@ var STATE = {
   toepfe: [],
   tab: "rechner",
   ings: [{ id: cuid(), dbId: null, grams: "" }],
+  extras: [],
   endW: "",
+  taraMode: false,
+  selectedTopf: "",
+  bruttoW: "",
+  pMode: "grams",
   pInput: "600",
+  activeRecipeName: null,
   saving: false
 };
 
@@ -268,21 +276,23 @@ function persistData() {
 // ============ BERECHNUNG ============
 function calcM(ing) {
   var g = parseFloat(ing.grams) || 0;
-  if (!g || !ing.dbId) return { kcal: 0, protein: 0, carbs: 0, fat: 0 };
+  if (!g || !ing.dbId) return { kcal: 0, protein: 0, carbs: 0, fat: 0, leucin: 0 };
   var ref = STATE.db.find(function (e) { return e.id === ing.dbId; });
-  if (!ref) return { kcal: 0, protein: 0, carbs: 0, fat: 0 };
+  if (!ref) return { kcal: 0, protein: 0, carbs: 0, fat: 0, leucin: 0 };
+  var protein = g * ref.protein / 100;
   return {
     kcal: g * ref.kcal / 100,
-    protein: g * ref.protein / 100,
+    protein: protein,
     carbs: g * ref.carbs / 100,
-    fat: g * ref.fat / 100
+    fat: g * ref.fat / 100,
+    leucin: protein * (typeof ref.leu === "number" ? ref.leu : 0.065)
   };
 }
 function sumM(list) {
   return list.reduce(function (a, i) {
     var m = calcM(i);
-    return { kcal: a.kcal + m.kcal, protein: a.protein + m.protein, carbs: a.carbs + m.carbs, fat: a.fat + m.fat };
-  }, { kcal: 0, protein: 0, carbs: 0, fat: 0 });
+    return { kcal: a.kcal + m.kcal, protein: a.protein + m.protein, carbs: a.carbs + m.carbs, fat: a.fat + m.fat, leucin: a.leucin + m.leucin };
+  }, { kcal: 0, protein: 0, carbs: 0, fat: 0, leucin: 0 });
 }
 function macroLine(m) {
   return '<span style="font-family:monospace;font-size:11px;">' +
@@ -291,7 +301,25 @@ function macroLine(m) {
     '<span style="color:#fb923c">' + m.carbs.toFixed(1) + 'KH</span> \u00b7 ' +
     '<span style="color:#c084fc">' + m.fat.toFixed(1) + 'F</span></span>';
 }
-function esc(s) { var d = document.createElement("div"); d.textContent = s; return d.innerHTML; }
+function macroPillsBig(m) {
+  return '<div style="display:flex;gap:5px;margin-top:6px;">' +
+    '<div style="flex:1;background:#1e1e2e;border-radius:6px;padding:8px 4px;text-align:center;"><div style="font-family:monospace;font-size:16px;color:#94a3b8">' + Math.round(m.kcal) + '</div><div style="font-size:9px;color:#94a3b8">kcal</div></div>' +
+    '<div style="flex:1;background:#2d1515;border-radius:6px;padding:8px 4px;text-align:center;"><div style="font-family:monospace;font-size:16px;color:#f87171">' + m.protein.toFixed(1) + '</div><div style="font-size:9px;color:#f87171">Prot</div></div>' +
+    '<div style="flex:1;background:#2b1a0c;border-radius:6px;padding:8px 4px;text-align:center;"><div style="font-family:monospace;font-size:16px;color:#fb923c">' + m.carbs.toFixed(1) + '</div><div style="font-size:9px;color:#fb923c">KH</div></div>' +
+    '<div style="flex:1;background:#1e1228;border-radius:6px;padding:8px 4px;text-align:center;"><div style="font-family:monospace;font-size:16px;color:#c084fc">' + m.fat.toFixed(1) + '</div><div style="font-size:9px;color:#c084fc">Fett</div></div>' +
+    '</div>';
+}
+function leucinAmpel(leucin) {
+  var gruen = leucin >= 2.5;
+  var gelb = leucin >= 2.0 && leucin < 2.5;
+  var color = gruen ? "#4ade80" : gelb ? "#facc15" : "#f87171";
+  var label = gruen ? "MPS-Trigger erreicht" : gelb ? "Grenzwertig" : "MPS-Trigger nicht erreicht";
+  return '<div style="display:flex;align-items:center;gap:8px;margin-top:10px;background:#151922;border-radius:7px;padding:8px 12px;">' +
+    '<div style="width:12px;height:12px;border-radius:50%;background:' + color + ';flex-shrink:0;"></div>' +
+    '<span style="font-family:monospace;font-size:12px;color:' + color + ';">' + leucin.toFixed(2) + 'g Leucin</span>' +
+    '<span style="font-size:12px;color:#cbd5e1;">' + label + '</span></div>';
+}
+function esc(s) { var d = document.createElement("div"); d.textContent = s == null ? "" : s; return d.innerHTML; }
 
 // ============ UI: HAUPT-RENDER ============
 function renderMainApp(accessToken) {
@@ -303,11 +331,12 @@ function renderMainApp(accessToken) {
 }
 
 function renderApp() {
-  var sortedDb = STATE.db.slice().sort(function (a, b) { return a.name.localeCompare(b.name); });
-
   var html = '<div style="max-width:600px;margin:0 auto;padding:12px 12px 60px;">';
   html += '<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #1e2433;padding-bottom:10px;margin-bottom:14px;">';
+  html += '<div style="display:flex;align-items:center;gap:8px;">';
   html += '<div style="font-size:18px;font-weight:600;">\u{1F372} Rod\'s Kochkalkulator</div>';
+  html += '<span style="font-size:10px;color:#94a3b8;font-family:monospace;background:#1e293b;border:1px solid #334155;padding:2px 6px;border-radius:4px;">v' + APP_VERSION + '</span>';
+  html += '</div>';
   html += '<button id="logoutBtn" style="background:transparent;border:1px solid #334155;color:#94a3b8;border-radius:6px;padding:6px 10px;font-size:11px;">Abmelden</button>';
   html += '</div>';
 
@@ -333,60 +362,149 @@ function renderApp() {
   if (STATE.tab === "datenbank") renderDatenbank();
 }
 
+// ============ Helfer: Zutatenzeile rendern (fuer Rechner + Extras) ============
+function renderIngRow(ing, cssClass) {
+  var sortedDb = STATE.db.slice().sort(function (a, b) { return a.name.localeCompare(b.name); });
+  var ref = ing.dbId ? STATE.db.find(function (e) { return e.id === ing.dbId; }) : null;
+  var m = calcM(ing);
+  var hasData = ing.grams && ing.dbId && ref;
+
+  var html = '<div style="background:#0f1117;border:1px solid #1a2233;border-radius:7px;padding:10px;margin-bottom:8px;">';
+  html += '<div style="display:grid;grid-template-columns:1fr 70px 32px;gap:6px;align-items:center;">';
+  html += '<select class="' + cssClass + 'Select" data-id="' + ing.id + '" style="background:#0f1117;border:1px solid #1e2433;border-radius:7px;color:#e2e8f0;font-size:14px;padding:8px;">';
+  html += '<option value="">-- Zutat --</option>';
+  sortedDb.forEach(function (e) {
+    html += '<option value="' + e.id + '"' + (ing.dbId === e.id ? " selected" : "") + '>' + esc(e.name) + '</option>';
+  });
+  html += '</select>';
+  html += '<input class="' + cssClass + 'Grams" data-id="' + ing.id + '" type="text" inputmode="decimal" placeholder="Gramm" value="' + esc(ing.grams) + '" style="background:#0f1117;border:1px solid #1e2433;border-radius:7px;color:#e2e8f0;font-size:14px;padding:8px;width:100%;">';
+  html += '<button class="' + cssClass + 'Rm" data-id="' + ing.id + '" style="background:transparent;border:1px solid #334155;border-radius:6px;color:#94a3b8;height:36px;">\u2715</button>';
+  html += '</div>';
+  if (hasData) {
+    html += '<div style="margin-top:6px;font-size:11px;"><span style="color:#64748b;margin-right:8px;">' + ref.kcal + ' kcal/100g</span>' + macroLine(m) + '</div>';
+  }
+  html += '</div>';
+  return html;
+}
+
 // ============ TAB: RECHNER ============
 function renderRechner() {
-  var sortedDb = STATE.db.slice().sort(function (a, b) { return a.name.localeCompare(b.name); });
   var totals = sumM(STATE.ings);
+  var totalsExtras = sumM(STATE.extras);
   var rawG = STATE.ings.reduce(function (s, i) { return s + (parseFloat(i.grams) || 0); }, 0);
-  var endWN = parseFloat(STATE.endW) || 0;
+
+  var topfGewicht = STATE.selectedTopf ? (STATE.toepfe.find(function (t) { return t.id === STATE.selectedTopf; }) || {}).weight || 0 : 0;
+  var endWN = STATE.taraMode ? Math.max(0, (parseFloat(STATE.bruttoW) || 0) - topfGewicht) : (parseFloat(STATE.endW) || 0);
+  var weightWarning = endWN > 0 && rawG > 0 && endWN >= rawG;
 
   var html = '<div style="background:#151922;border:1px solid #1e2433;border-radius:10px;padding:12px;margin-bottom:12px;">';
-  html += '<div style="font-size:11px;font-weight:600;color:#4ade80;margin-bottom:8px;">\u{1F525} Zutaten (Rohgewicht)</div>';
-
-  STATE.ings.forEach(function (ing) {
-    html += '<div style="display:grid;grid-template-columns:1fr 70px 32px;gap:6px;margin-bottom:8px;align-items:center;">';
-    html += '<select class="ingSelect" data-id="' + ing.id + '" style="background:#0f1117;border:1px solid #1e2433;border-radius:7px;color:#e2e8f0;font-size:14px;padding:8px;">';
-    html += '<option value="">-- Zutat --</option>';
-    sortedDb.forEach(function (e) {
-      html += '<option value="' + e.id + '"' + (ing.dbId === e.id ? " selected" : "") + '>' + esc(e.name) + '</option>';
-    });
-    html += '</select>';
-    html += '<input class="ingGrams" data-id="' + ing.id + '" type="text" inputmode="decimal" placeholder="Gramm" value="' + esc(ing.grams) + '" style="background:#0f1117;border:1px solid #1e2433;border-radius:7px;color:#e2e8f0;font-size:14px;padding:8px;width:100%;">';
-    html += '<button class="rmIng" data-id="' + ing.id + '" style="background:transparent;border:1px solid #334155;border-radius:6px;color:#94a3b8;height:36px;">\u2715</button>';
-    html += '</div>';
-  });
-
+  html += '<div style="font-size:11px;font-weight:600;color:#4ade80;margin-bottom:8px;">\u{1F525} Eingekochte Zutaten (Rohgewicht)</div>';
+  STATE.ings.forEach(function (ing) { html += renderIngRow(ing, "ing"); });
   html += '<div style="background:#1e293b;border-radius:7px;padding:10px;margin-top:4px;">Roh gesamt: ' + Math.round(rawG) + ' g<br>' + macroLine(totals) + '</div>';
   html += '<button id="addIngBtn" style="width:100%;margin-top:8px;background:transparent;border:1px solid #334155;color:#94a3b8;border-radius:7px;padding:9px;">+ Zutat</button>';
   html += '</div>';
 
   html += '<div style="background:#151922;border:1px solid #1e2433;border-radius:10px;padding:12px;margin-bottom:12px;">';
   html += '<div style="font-size:10px;text-transform:uppercase;color:#64748b;margin-bottom:8px;">Fertiggewicht nach dem Kochen</div>';
-  html += '<input id="endWInput" type="text" inputmode="decimal" placeholder="z.B. 1200" value="' + esc(STATE.endW) + '" style="background:#0f1117;border:1px solid #1e2433;border-radius:7px;color:#e2e8f0;font-size:14px;padding:8px;width:100%;">';
+  html += '<div style="display:flex;gap:3px;background:#0f1117;border-radius:9px;padding:3px;margin-bottom:10px;">';
+  html += '<button id="modeNetto" style="flex:1;padding:7px;border:none;border-radius:7px;background:' + (!STATE.taraMode ? "#1e293b" : "transparent") + ';color:' + (!STATE.taraMode ? "#e2e8f0" : "#64748b") + ';font-size:12px;">Nettogewicht</button>';
+  html += '<button id="modeTara" style="flex:1;padding:7px;border:none;border-radius:7px;background:' + (STATE.taraMode ? "#1e293b" : "transparent") + ';color:' + (STATE.taraMode ? "#e2e8f0" : "#64748b") + ';font-size:12px;">Topf + Inhalt</button>';
+  html += '</div>';
+
+  if (!STATE.taraMode) {
+    html += '<input id="endWInput" type="text" inputmode="decimal" placeholder="z.B. 1200" value="' + esc(STATE.endW) + '" style="background:#0f1117;border:1px solid #1e2433;border-radius:7px;color:#e2e8f0;font-size:14px;padding:8px;width:100%;">';
+  } else {
+    html += '<div style="font-size:11px;color:#64748b;margin-bottom:4px;">Topf / Pfanne</div>';
+    html += '<select id="topfSelect" style="background:#0f1117;border:1px solid #1e2433;border-radius:7px;color:#e2e8f0;font-size:14px;padding:8px;width:100%;margin-bottom:8px;">';
+    html += '<option value="">-- Kein Topf --</option>';
+    STATE.toepfe.forEach(function (t) {
+      html += '<option value="' + t.id + '"' + (STATE.selectedTopf === t.id ? " selected" : "") + '>' + esc(t.name) + ' (' + t.weight + 'g)</option>';
+    });
+    html += '</select>';
+    html += '<input id="bruttoWInput" type="text" inputmode="decimal" placeholder="Bruttogewicht (Topf + Inhalt)" value="' + esc(STATE.bruttoW) + '" style="background:#0f1117;border:1px solid #1e2433;border-radius:7px;color:#e2e8f0;font-size:14px;padding:8px;width:100%;">';
+    if (topfGewicht > 0 && STATE.bruttoW) {
+      html += '<div style="font-size:11px;color:#64748b;margin-top:4px;">Netto: ' + Math.round(endWN) + ' g (abzgl. ' + topfGewicht + 'g Topf)</div>';
+    }
+  }
+
+  if (weightWarning) {
+    html += '<div style="background:#2b1a0c;border:1px solid #92400e;color:#fdba74;border-radius:7px;padding:8px 12px;font-size:12px;margin-top:8px;">\u26a0 Fertiggewicht (' + Math.round(endWN) + 'g) \u2265 Rohgewicht (' + Math.round(rawG) + 'g). Bitte pr\u00fcfen.</div>';
+  } else if (endWN > 0 && rawG > 0) {
+    html += '<div style="font-size:10px;color:#64748b;margin-top:4px;">Gewichtsverlust: ' + Math.round((1 - endWN / rawG) * 100) + '%</div>';
+  }
 
   if (endWN > 0 && totals.kcal > 0) {
     var per100 = { kcal: totals.kcal / endWN * 100, protein: totals.protein / endWN * 100, carbs: totals.carbs / endWN * 100, fat: totals.fat / endWN * 100 };
     html += '<div style="font-size:11px;color:#475569;margin-top:8px;font-family:monospace;">' + Math.round(per100.kcal) + ' kcal \u00b7 ' + per100.protein.toFixed(1) + 'P \u00b7 ' + per100.carbs.toFixed(1) + 'KH \u00b7 ' + per100.fat.toFixed(1) + 'F pro 100g</div>';
 
-    html += '<div style="margin-top:12px;font-size:10px;text-transform:uppercase;color:#64748b;">Meine Portion</div>';
-    html += '<input id="pInputField" type="text" inputmode="decimal" placeholder="z.B. 600" value="' + esc(STATE.pInput) + '" style="background:#0f1117;border:1px solid #1e2433;border-radius:7px;color:#e2e8f0;font-size:14px;padding:8px;width:100%;margin-top:4px;">';
+    html += '<div style="margin-top:12px;font-size:10px;text-transform:uppercase;color:#64748b;">Meine Portion aus dem Topf</div>';
+    html += '<div style="display:flex;gap:3px;background:#0f1117;border-radius:9px;padding:3px;margin:6px 0;">';
+    html += '<button id="pModeGrams" style="flex:1;padding:6px;border:none;border-radius:7px;background:' + (STATE.pMode === "grams" ? "#1e293b" : "transparent") + ';color:' + (STATE.pMode === "grams" ? "#e2e8f0" : "#64748b") + ';font-size:11px;">X Gramm</button>';
+    html += '<button id="pModeKcal" style="flex:1;padding:6px;border:none;border-radius:7px;background:' + (STATE.pMode === "kcal" ? "#1e293b" : "transparent") + ';color:' + (STATE.pMode === "kcal" ? "#e2e8f0" : "#64748b") + ';font-size:11px;">X kcal frei</button>';
+    html += '</div>';
+    html += '<input id="pInputField" type="text" inputmode="decimal" placeholder="z.B. 600" value="' + esc(STATE.pInput) + '" style="background:#0f1117;border:1px solid #1e2433;border-radius:7px;color:#e2e8f0;font-size:14px;padding:8px;width:100%;">';
 
-    var pg = parseFloat(STATE.pInput) || 0;
-    var ant = Math.min(pg / endWN, 1);
-    var portion = { kcal: totals.kcal * ant, protein: totals.protein * ant, carbs: totals.carbs * ant, fat: totals.fat * ant };
-    html += '<div style="background:#0f1117;border-radius:8px;padding:10px;margin-top:8px;">' + macroLine(portion) + '</div>';
+    var val = parseFloat(STATE.pInput) || 0;
+    var pg = STATE.pMode === "grams" ? val : (per100.kcal > 0 ? val / (per100.kcal / 100) : 0);
+    var ant = endWN > 0 ? Math.min(pg / endWN, 1) : 0;
+    var portion = { kcal: totals.kcal * ant, protein: totals.protein * ant, carbs: totals.carbs * ant, fat: totals.fat * ant, leucin: totals.leucin * ant };
+    html += '<div style="background:#0f1117;border-radius:8px;padding:10px;margin-top:8px;"><div style="font-size:10px;color:#4ade80;margin-bottom:4px;">\u{1F525} Aus dem Topf</div>' + macroLine(portion) + '</div>';
+
+    window._portionCache = portion;
+  } else {
+    window._portionCache = null;
   }
   html += '</div>';
 
+  // Extras / Beilagen
+  html += '<div style="background:#151922;border:1px solid #2d3f1e;border-radius:10px;padding:12px;margin-bottom:12px;">';
+  html += '<div style="font-size:11px;font-weight:600;color:#fb923c;margin-bottom:8px;">\u2728 Beilagen &amp; Extras (nicht eingekocht)</div>';
+  if (STATE.extras.length === 0) {
+    html += '<div style="font-size:12px;color:#475569;margin-bottom:8px;">z.B. Nudeln, Reis, Parmesan, Brot, Eier...</div>';
+  }
+  STATE.extras.forEach(function (ing) { html += renderIngRow(ing, "extra"); });
+  if (STATE.extras.length > 0) {
+    html += '<div style="background:#1e2b1a;border-radius:7px;padding:10px;margin-top:4px;">Beilagen gesamt<br>' + macroLine(totalsExtras) + '</div>';
+  }
+  html += '<button id="addExtraBtn" style="width:100%;margin-top:8px;background:transparent;border:1px solid #2d3f1e;color:#86efac;border-radius:7px;padding:9px;">+ Beilage</button>';
+  html += '</div>';
+
+  // Gesamt auf dem Teller
+  if (window._portionCache) {
+    var grand = {
+      kcal: window._portionCache.kcal + totalsExtras.kcal,
+      protein: window._portionCache.protein + totalsExtras.protein,
+      carbs: window._portionCache.carbs + totalsExtras.carbs,
+      fat: window._portionCache.fat + totalsExtras.fat,
+      leucin: window._portionCache.leucin + totalsExtras.leucin
+    };
+    html += '<div style="background:#0f1117;border:2px solid #334155;border-radius:10px;padding:16px;margin-bottom:12px;">';
+    html += '<div style="font-size:13px;font-weight:600;color:#f1f5f9;margin-bottom:4px;">\u{1F4CA} Gesamt auf dem Teller</div>';
+    html += macroPillsBig(grand);
+    html += leucinAmpel(grand.leucin);
+    html += '</div>';
+  }
+
   html += '<div style="background:#1a1f2e;border:1px solid #2d3f5e;border-radius:10px;padding:12px;">';
+  if (STATE.activeRecipeName) {
+    html += '<div style="font-size:13px;color:#fb923c;font-weight:600;margin-bottom:8px;">\u{1F4CB} ' + esc(STATE.activeRecipeName) + '</div>';
+  }
   html += '<div style="font-size:10px;text-transform:uppercase;color:#64748b;margin-bottom:8px;">Rezept speichern</div>';
-  html += '<input id="recipeNameInput" type="text" placeholder="Rezeptname..." style="background:#0f1117;border:1px solid #1e2433;border-radius:7px;color:#e2e8f0;font-size:14px;padding:8px;width:100%;margin-bottom:8px;">';
-  html += '<button id="saveRecipeBtn" style="width:100%;background:#d97706;color:#fff;border:none;border-radius:7px;padding:10px;font-weight:500;">' + (STATE.saving ? "Speichert..." : "\u{1F4BE} Speichern") + '</button>';
+  html += '<input id="recipeNameInput" type="text" placeholder="Rezeptname..." value="' + esc(STATE.activeRecipeName || "") + '" style="background:#0f1117;border:1px solid #1e2433;border-radius:7px;color:#e2e8f0;font-size:14px;padding:8px;width:100%;margin-bottom:8px;">';
+  html += '<div style="display:flex;gap:8px;">';
+  html += '<button id="saveRecipeBtn" style="flex:1;background:#d97706;color:#fff;border:none;border-radius:7px;padding:10px;font-weight:500;">' + (STATE.saving ? "Speichert..." : "\u{1F4BE} Speichern") + '</button>';
+  html += '<button id="resetBtn" style="background:transparent;border:1px solid #334155;color:#94a3b8;border-radius:7px;padding:10px 14px;">\u21ba Reset</button>';
+  html += '</div>';
   html += '<div id="saveMsg" style="font-size:12px;margin-top:8px;"></div>';
   html += '</div>';
 
   document.getElementById("tabContent").innerHTML = html;
   wireRechnerEvents();
+}
+
+function refocus(selector, cursorPos) {
+  var el = document.querySelector(selector);
+  if (el) { el.focus(); if (typeof cursorPos === "number") el.setSelectionRange(cursorPos, cursorPos); }
 }
 
 function wireRechnerEvents() {
@@ -397,44 +515,93 @@ function wireRechnerEvents() {
       renderRechner();
     });
   });
+  document.querySelectorAll(".extraSelect").forEach(function (sel) {
+    sel.addEventListener("change", function () {
+      var ing = STATE.extras.find(function (i) { return i.id === sel.dataset.id; });
+      ing.dbId = sel.value ? parseInt(sel.value, 10) : null;
+      renderRechner();
+    });
+  });
   document.querySelectorAll(".ingGrams").forEach(function (inp) {
     inp.addEventListener("input", function () {
       var ing = STATE.ings.find(function (i) { return i.id === inp.dataset.id; });
       ing.grams = inp.value;
       var cursorPos = inp.selectionStart;
       renderRechner();
-      var newInp = document.querySelector('.ingGrams[data-id="' + ing.id + '"]');
-      if (newInp) { newInp.focus(); newInp.setSelectionRange(cursorPos, cursorPos); }
+      refocus('.ingGrams[data-id="' + ing.id + '"]', cursorPos);
     });
   });
-  document.querySelectorAll(".rmIng").forEach(function (btn) {
+  document.querySelectorAll(".extraGrams").forEach(function (inp) {
+    inp.addEventListener("input", function () {
+      var ing = STATE.extras.find(function (i) { return i.id === inp.dataset.id; });
+      ing.grams = inp.value;
+      var cursorPos = inp.selectionStart;
+      renderRechner();
+      refocus('.extraGrams[data-id="' + ing.id + '"]', cursorPos);
+    });
+  });
+  document.querySelectorAll(".ingRm").forEach(function (btn) {
     btn.addEventListener("click", function () {
       STATE.ings = STATE.ings.filter(function (i) { return i.id !== btn.dataset.id; });
       if (STATE.ings.length === 0) STATE.ings = [{ id: cuid(), dbId: null, grams: "" }];
       renderRechner();
     });
   });
-  var addBtn = document.getElementById("addIngBtn");
-  if (addBtn) addBtn.addEventListener("click", function () {
-    STATE.ings.push({ id: cuid(), dbId: null, grams: "" });
-    renderRechner();
+  document.querySelectorAll(".extraRm").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      STATE.extras = STATE.extras.filter(function (i) { return i.id !== btn.dataset.id; });
+      renderRechner();
+    });
   });
+  var addBtn = document.getElementById("addIngBtn");
+  if (addBtn) addBtn.addEventListener("click", function () { STATE.ings.push({ id: cuid(), dbId: null, grams: "" }); renderRechner(); });
+  var addExtraBtn = document.getElementById("addExtraBtn");
+  if (addExtraBtn) addExtraBtn.addEventListener("click", function () { STATE.extras.push({ id: cuid(), dbId: null, grams: "" }); renderRechner(); });
+
+  var modeNetto = document.getElementById("modeNetto");
+  if (modeNetto) modeNetto.addEventListener("click", function () { STATE.taraMode = false; renderRechner(); });
+  var modeTara = document.getElementById("modeTara");
+  if (modeTara) modeTara.addEventListener("click", function () { STATE.taraMode = true; renderRechner(); });
+
   var endWInput = document.getElementById("endWInput");
   if (endWInput) endWInput.addEventListener("input", function () {
     STATE.endW = endWInput.value;
     var cursorPos = endWInput.selectionStart;
     renderRechner();
-    var el = document.getElementById("endWInput");
-    if (el) { el.focus(); el.setSelectionRange(cursorPos, cursorPos); }
+    refocus("#endWInput", cursorPos);
   });
+  var topfSelect = document.getElementById("topfSelect");
+  if (topfSelect) topfSelect.addEventListener("change", function () { STATE.selectedTopf = topfSelect.value; renderRechner(); });
+  var bruttoWInput = document.getElementById("bruttoWInput");
+  if (bruttoWInput) bruttoWInput.addEventListener("input", function () {
+    STATE.bruttoW = bruttoWInput.value;
+    var cursorPos = bruttoWInput.selectionStart;
+    renderRechner();
+    refocus("#bruttoWInput", cursorPos);
+  });
+
+  var pModeGrams = document.getElementById("pModeGrams");
+  if (pModeGrams) pModeGrams.addEventListener("click", function () { STATE.pMode = "grams"; renderRechner(); });
+  var pModeKcal = document.getElementById("pModeKcal");
+  if (pModeKcal) pModeKcal.addEventListener("click", function () { STATE.pMode = "kcal"; renderRechner(); });
+
   var pInputField = document.getElementById("pInputField");
   if (pInputField) pInputField.addEventListener("input", function () {
     STATE.pInput = pInputField.value;
     var cursorPos = pInputField.selectionStart;
     renderRechner();
-    var el = document.getElementById("pInputField");
-    if (el) { el.focus(); el.setSelectionRange(cursorPos, cursorPos); }
+    refocus("#pInputField", cursorPos);
   });
+
+  var resetBtn = document.getElementById("resetBtn");
+  if (resetBtn) resetBtn.addEventListener("click", function () {
+    STATE.ings = [{ id: cuid(), dbId: null, grams: "" }];
+    STATE.extras = [];
+    STATE.endW = ""; STATE.bruttoW = ""; STATE.taraMode = false; STATE.selectedTopf = "";
+    STATE.pInput = "600"; STATE.pMode = "grams"; STATE.activeRecipeName = null;
+    renderRechner();
+  });
+
   var saveBtn = document.getElementById("saveRecipeBtn");
   if (saveBtn) saveBtn.addEventListener("click", function () {
     var nameInput = document.getElementById("recipeNameInput");
@@ -443,11 +610,17 @@ function wireRechnerEvents() {
     if (!name) { msgEl.textContent = "Bitte Rezeptname eingeben."; msgEl.style.color = "#fdba74"; return; }
 
     var existing = STATE.recipes.find(function (r) { return r.name.toLowerCase() === name.toLowerCase(); });
-    var recipeData = { ingredients: STATE.ings.map(function (i) { return { dbId: i.dbId, grams: i.grams }; }), endW: STATE.endW, pInput: STATE.pInput, savedAt: new Date().toLocaleDateString("de-DE") };
+    var recipeData = {
+      ingredients: STATE.ings.map(function (i) { return { dbId: i.dbId, grams: i.grams }; }),
+      extras: STATE.extras.map(function (i) { return { dbId: i.dbId, grams: i.grams }; }),
+      endW: STATE.endW, pInput: STATE.pInput, pMode: STATE.pMode,
+      savedAt: new Date().toLocaleDateString("de-DE")
+    };
 
     if (existing) { Object.assign(existing, recipeData); }
     else { STATE.recipes.unshift(Object.assign({ id: cuid(), name: name }, recipeData)); }
 
+    STATE.activeRecipeName = name;
     STATE.saving = true;
     renderRechner();
     persistData().then(function () {
@@ -472,11 +645,13 @@ function renderRezepte() {
   }
   STATE.recipes.slice().sort(function (a, b) { return a.name.localeCompare(b.name); }).forEach(function (r) {
     var totals = sumM(r.ingredients);
+    var totalsExtras = sumM(r.extras || []);
+    var combined = { kcal: totals.kcal + totalsExtras.kcal, protein: totals.protein + totalsExtras.protein, carbs: totals.carbs + totalsExtras.carbs, fat: totals.fat + totalsExtras.fat };
     var rawG = r.ingredients.reduce(function (s, i) { return s + (parseFloat(i.grams) || 0); }, 0);
     html += '<div style="background:#0f1117;border:1px solid #1e2433;border-radius:8px;padding:12px;margin-bottom:8px;">';
     html += '<div style="font-size:14px;font-weight:600;color:#f1f5f9;">' + esc(r.name) + '</div>';
     html += '<div style="font-size:11px;color:#64748b;font-family:monospace;margin-bottom:5px;">' + Math.round(rawG) + 'g roh \u00b7 ' + esc(r.savedAt || "") + '</div>';
-    html += macroLine(totals);
+    html += macroLine(combined);
     html += '<div style="display:flex;gap:6px;margin-top:8px;">';
     html += '<button class="loadRecipeBtn" data-id="' + r.id + '" style="flex:1;background:#3b82f6;color:#fff;border:none;border-radius:7px;padding:8px;font-size:12px;">\u{1F4C2} Laden</button>';
     html += '<button class="delRecipeBtn" data-id="' + r.id + '" style="background:transparent;border:1px solid #334155;color:#94a3b8;border-radius:6px;width:32px;">\u2715</button>';
@@ -488,8 +663,12 @@ function renderRezepte() {
     btn.addEventListener("click", function () {
       var r = STATE.recipes.find(function (x) { return x.id === btn.dataset.id; });
       STATE.ings = r.ingredients.map(function (i) { return { id: cuid(), dbId: i.dbId, grams: i.grams }; });
+      STATE.extras = (r.extras || []).map(function (i) { return { id: cuid(), dbId: i.dbId, grams: i.grams }; });
       STATE.endW = r.endW || "";
       STATE.pInput = r.pInput || "600";
+      STATE.pMode = r.pMode || "grams";
+      STATE.activeRecipeName = r.name;
+      STATE.taraMode = false; STATE.selectedTopf = "";
       STATE.tab = "rechner";
       renderApp();
     });
@@ -517,6 +696,23 @@ function renderDatenbank() {
   html += '<button id="addFoodBtn" style="width:100%;background:#059669;color:#fff;border:none;border-radius:7px;padding:10px;">+ Hinzuf\u00fcgen</button>';
   html += '</div>';
 
+  html += '<div style="background:#151922;border:1px solid #1e2433;border-radius:10px;padding:12px;margin-bottom:12px;">';
+  html += '<div style="font-size:10px;text-transform:uppercase;color:#64748b;margin-bottom:8px;">T\u00f6pfe &amp; Pfannen</div>';
+  html += '<div style="display:grid;grid-template-columns:1fr 90px 36px;gap:6px;margin-bottom:10px;align-items:end;">';
+  html += '<div><div style="font-size:10px;color:#64748b;margin-bottom:3px;">Name</div><input id="newTopfName" placeholder="z.B. Suppentopf" style="background:#0f1117;border:1px solid #1e2433;border-radius:7px;color:#e2e8f0;padding:8px;width:100%;"></div>';
+  html += '<div><div style="font-size:10px;color:#64748b;margin-bottom:3px;">Gewicht (g)</div><input id="newTopfWeight" inputmode="decimal" placeholder="1240" style="background:#0f1117;border:1px solid #1e2433;border-radius:7px;color:#e2e8f0;padding:8px;width:100%;"></div>';
+  html += '<button id="addTopfBtn" style="background:#059669;color:#fff;border:none;border-radius:7px;height:40px;">+</button>';
+  html += '</div>';
+  if (STATE.toepfe.length === 0) html += '<div style="font-size:12px;color:#475569;">Noch keine T\u00f6pfe eingetragen.</div>';
+  STATE.toepfe.forEach(function (t) {
+    html += '<div style="display:grid;grid-template-columns:1fr auto 32px;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid #1e2433;">';
+    html += '<span style="font-size:13px;">' + esc(t.name) + '</span>';
+    html += '<span style="font-family:monospace;font-size:12px;color:#94a3b8;">' + t.weight + 'g</span>';
+    html += '<button class="delTopfBtn" data-id="' + t.id + '" style="background:transparent;border:1px solid #334155;color:#94a3b8;border-radius:6px;">\u2715</button>';
+    html += '</div>';
+  });
+  html += '</div>';
+
   html += '<div style="background:#151922;border:1px solid #1e2433;border-radius:10px;padding:12px;">';
   html += '<div style="font-size:10px;text-transform:uppercase;color:#64748b;margin-bottom:8px;">Lebensmittel (' + STATE.db.length + ')</div>';
   sortedDb.forEach(function (e) {
@@ -540,13 +736,27 @@ function renderDatenbank() {
       id: Date.now(), num: nextNum, name: name, kcal: kcal,
       protein: parseFloat(document.getElementById("newFood_protein").value) || 0,
       carbs: parseFloat(document.getElementById("newFood_carbs").value) || 0,
-      fat: parseFloat(document.getElementById("newFood_fat").value) || 0
+      fat: parseFloat(document.getElementById("newFood_fat").value) || 0,
+      leu: 0.065
     });
     persistData().then(renderDatenbank);
   });
   document.querySelectorAll(".delFoodBtn").forEach(function (btn) {
     btn.addEventListener("click", function () {
       STATE.db = STATE.db.filter(function (e) { return e.id !== parseInt(btn.dataset.id, 10); });
+      persistData().then(renderDatenbank);
+    });
+  });
+  document.getElementById("addTopfBtn").addEventListener("click", function () {
+    var name = document.getElementById("newTopfName").value.trim();
+    var weight = parseFloat(document.getElementById("newTopfWeight").value);
+    if (!name || !weight) { alert("Name und Gewicht sind Pflicht."); return; }
+    STATE.toepfe.push({ id: cuid(), name: name, weight: weight });
+    persistData().then(renderDatenbank);
+  });
+  document.querySelectorAll(".delTopfBtn").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      STATE.toepfe = STATE.toepfe.filter(function (t) { return t.id !== btn.dataset.id; });
       persistData().then(renderDatenbank);
     });
   });
