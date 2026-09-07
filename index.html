@@ -45,7 +45,7 @@ window.addEventListener("unhandledrejection", function (e) {
   showError("Fehler (Promise):", e.reason && e.reason.message ? e.reason.message : String(e.reason));
 });
 
-var APP_VERSION = "1.2.0";
+var APP_VERSION = "1.3.0";
 var DROPBOX_APP_KEY = "nns9uy3os0aolu9";
 var REDIRECT_URI = window.location.origin + window.location.pathname;
 var DATA_FILE_PATH = "/kochkalkulator-daten.json";
@@ -645,21 +645,51 @@ function wireRechnerEvents() {
 }
 
 // ============ TAB: REZEPTE ============
+function recipePortionStats(r) {
+  var rawTotals = sumM(r.ingredients);
+  var extrasTotals = sumM(r.extras || []);
+  var rawG = r.ingredients.reduce(function (s, i) { return s + (parseFloat(i.grams) || 0); }, 0);
+  var endWN = parseFloat(r.endW) || 0;
+
+  if (endWN > 0 && rawTotals.kcal > 0) {
+    var per100 = { kcal: rawTotals.kcal / endWN * 100, protein: rawTotals.protein / endWN * 100, carbs: rawTotals.carbs / endWN * 100, fat: rawTotals.fat / endWN * 100 };
+    var pMode = r.pMode || "grams";
+    var val = parseFloat(r.pInput) || 0;
+    var pg = pMode === "grams" ? val : (per100.kcal > 0 ? val / (per100.kcal / 100) : 0);
+    var ant = Math.min(pg / endWN, 1);
+    var big = {
+      kcal: rawTotals.kcal * ant + extrasTotals.kcal,
+      protein: rawTotals.protein * ant + extrasTotals.protein,
+      carbs: rawTotals.carbs * ant + extrasTotals.carbs,
+      fat: rawTotals.fat * ant + extrasTotals.fat,
+      leucin: rawTotals.leucin * ant + extrasTotals.leucin
+    };
+    return { big: big, label: "Portion \u00b7 " + Math.round(pg) + "g" };
+  }
+  if (rawG > 0 && rawTotals.kcal > 0) {
+    var per100raw = {
+      kcal: rawTotals.kcal / rawG * 100, protein: rawTotals.protein / rawG * 100,
+      carbs: rawTotals.carbs / rawG * 100, fat: rawTotals.fat / rawG * 100, leucin: rawTotals.leucin / rawG * 100
+    };
+    return { big: per100raw, label: "pro 100g \u00b7 kein Fertiggewicht gespeichert" };
+  }
+  return { big: { kcal: 0, protein: 0, carbs: 0, fat: 0, leucin: 0 }, label: "keine Daten" };
+}
+
 function renderRezepte() {
   var html = "";
   if (STATE.recipes.length === 0) {
     html += '<div style="text-align:center;color:#64748b;padding:32px;">Noch keine Rezepte gespeichert.</div>';
   }
   STATE.recipes.slice().sort(function (a, b) { return a.name.localeCompare(b.name); }).forEach(function (r) {
-    var totals = sumM(r.ingredients);
-    var totalsExtras = sumM(r.extras || []);
-    var combined = { kcal: totals.kcal + totalsExtras.kcal, protein: totals.protein + totalsExtras.protein, carbs: totals.carbs + totalsExtras.carbs, fat: totals.fat + totalsExtras.fat };
-    var rawG = r.ingredients.reduce(function (s, i) { return s + (parseFloat(i.grams) || 0); }, 0);
-    html += '<div style="background:#0f1117;border:1px solid #1e2433;border-radius:8px;padding:12px;margin-bottom:8px;">';
-    html += '<div style="font-size:14px;font-weight:600;color:#f1f5f9;">' + esc(r.name) + '</div>';
-    html += '<div style="font-size:11px;color:#64748b;font-family:monospace;margin-bottom:5px;">' + Math.round(rawG) + 'g roh \u00b7 ' + esc(r.savedAt || "") + '</div>';
-    html += macroLine(combined);
-    html += '<div style="display:flex;gap:6px;margin-top:8px;">';
+    var stats = recipePortionStats(r);
+    html += '<div style="background:#0f1117;border:1px solid #1e2433;border-radius:10px;padding:14px;margin-bottom:10px;">';
+    html += '<div style="font-size:15px;font-weight:600;color:#f1f5f9;margin-bottom:2px;">' + esc(r.name) + '</div>';
+    html += '<div style="font-size:10px;color:#64748b;margin-bottom:8px;">' + esc(stats.label) + '</div>';
+    html += '<div style="font-family:monospace;font-size:34px;font-weight:700;color:#e2e8f0;line-height:1;">' + Math.round(stats.big.kcal) + '<span style="font-size:14px;color:#64748b;font-weight:400;"> kcal</span></div>';
+    html += macroPillsBig(stats.big);
+    html += leucinAmpel(stats.big.leucin);
+    html += '<div style="display:flex;gap:6px;margin-top:10px;">';
     html += '<button class="loadRecipeBtn" data-id="' + r.id + '" style="flex:1;background:#3b82f6;color:#fff;border:none;border-radius:7px;padding:8px;font-size:12px;">\u{1F4C2} Laden</button>';
     html += '<button class="delRecipeBtn" data-id="' + r.id + '" style="background:transparent;border:1px solid #334155;color:#94a3b8;border-radius:6px;width:32px;">\u2715</button>';
     html += '</div></div>';
