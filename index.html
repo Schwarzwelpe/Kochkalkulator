@@ -45,7 +45,7 @@ window.addEventListener("unhandledrejection", function (e) {
   showError("Fehler (Promise):", e.reason && e.reason.message ? e.reason.message : String(e.reason));
 });
 
-var APP_VERSION = "1.3.0";
+var APP_VERSION = "1.3.1";
 var DROPBOX_APP_KEY = "nns9uy3os0aolu9";
 var REDIRECT_URI = window.location.origin + window.location.pathname;
 var DATA_FILE_PATH = "/kochkalkulator-daten.json";
@@ -617,10 +617,16 @@ function wireRechnerEvents() {
     if (!name) { msgEl.textContent = "Bitte Rezeptname eingeben."; msgEl.style.color = "#fdba74"; return; }
 
     var existing = STATE.recipes.find(function (r) { return r.name.toLowerCase() === name.toLowerCase(); });
+    var topfGewicht = STATE.selectedTopf ? (STATE.toepfe.find(function (t) { return t.id === STATE.selectedTopf; }) || {}).weight || 0 : 0;
+    var endWN = STATE.taraMode ? Math.max(0, (parseFloat(STATE.bruttoW) || 0) - topfGewicht) : (parseFloat(STATE.endW) || 0);
     var recipeData = {
       ingredients: STATE.ings.map(function (i) { return { dbId: i.dbId, grams: i.grams }; }),
       extras: STATE.extras.map(function (i) { return { dbId: i.dbId, grams: i.grams }; }),
-      endW: STATE.endW, pInput: STATE.pInput, pMode: STATE.pMode,
+      endW: String(endWN || ""),
+      taraMode: STATE.taraMode,
+      selectedTopf: STATE.selectedTopf,
+      bruttoW: STATE.bruttoW,
+      pInput: STATE.pInput, pMode: STATE.pMode,
       savedAt: new Date().toLocaleDateString("de-DE")
     };
 
@@ -705,7 +711,9 @@ function renderRezepte() {
       STATE.pInput = r.pInput || "600";
       STATE.pMode = r.pMode || "grams";
       STATE.activeRecipeName = r.name;
-      STATE.taraMode = false; STATE.selectedTopf = "";
+      STATE.taraMode = !!r.taraMode;
+      STATE.selectedTopf = r.taraMode ? (r.selectedTopf || "") : "";
+      STATE.bruttoW = r.taraMode ? (r.bruttoW || "") : "";
       STATE.tab = "rechner";
       renderApp();
     });
