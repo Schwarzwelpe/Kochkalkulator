@@ -45,7 +45,7 @@ window.addEventListener("unhandledrejection", function (e) {
   showError("Fehler (Promise):", e.reason && e.reason.message ? e.reason.message : String(e.reason));
 });
 
-var APP_VERSION = "1.5.5";
+var APP_VERSION = "1.5.6";
 var DROPBOX_APP_KEY = "nns9uy3os0aolu9";
 var REDIRECT_URI = window.location.origin + window.location.pathname;
 var DATA_FILE_PATH = "/kochkalkulator-daten.json";
@@ -407,7 +407,8 @@ function renderIngRow(ing, cssClass) {
   var showShare = cssClass === "extra";
   var shared = showShare && !!ing.shared;
   var antS = window._antShared || 0;
-  var gShare = shared ? (pf(ing.grams) || 0) * antS : (pf(ing.grams) || 0);
+  var noPortion = shared && !window._portionCache;
+  var gShare = shared && !noPortion ? (pf(ing.grams) || 0) * antS : (pf(ing.grams) || 0);
   if (shared) m = calcM({ dbId: ing.dbId, grams: gShare });
   var isAnker = showAnker && ing.dbId && STATE.activeAnkerDbId === ing.dbId;
 
@@ -431,7 +432,9 @@ function renderIngRow(ing, cssClass) {
   if (hasData) {
     html += '<div style="margin-top:6px;font-size:11px;"><span style="color:#64748b;margin-right:8px;">' + ref.kcal + ' kcal/100g</span>' + macroLine(m) + '</div>';
   }
-  if (shared && hasData) {
+  if (noPortion && hasData) {
+    html += '<div style="font-size:11px;color:#7dd3fc;margin-top:4px;">\u00f7 in der Pfanne \u00b7 dein Anteil folgt, sobald das Fertiggewicht eingetragen ist</div>';
+  } else if (shared && hasData) {
     var totG = pf(ing.grams) || 0;
     html += '<div style="font-size:11px;color:#7dd3fc;margin-top:4px;">\u00f7 in der Pfanne \u00b7 Du: ' + (Math.round(gShare * 10) / 10) + ' g \u00b7 Rest: ' + (Math.round((totG - gShare) * 10) / 10) + ' g</div>';
   }
@@ -494,7 +497,11 @@ function renderRechner() {
     html += '</select>';
     html += '<input id="bruttoWInput" type="text" inputmode="decimal" placeholder="Bruttogewicht (Topf + Inhalt)" value="' + esc(STATE.bruttoW) + '" style="background:#0f1117;border:1px solid #1e2433;border-radius:7px;color:#e2e8f0;font-size:14px;padding:8px;width:100%;">';
     if (topfGewicht > 0 && STATE.bruttoW) {
-      html += '<div style="font-size:11px;color:#64748b;margin-top:4px;">Netto: ' + Math.round(endWN) + ' g (abzgl. ' + topfGewicht + 'g Topf)</div>';
+      if ((pf(STATE.bruttoW) || 0) <= topfGewicht) {
+        html += '<div style="background:#2b1a0c;border:1px solid #92400e;color:#fdba74;border-radius:7px;padding:8px 12px;font-size:12px;margin-top:8px;">\u26a0 Bruttogewicht (' + Math.round(pf(STATE.bruttoW) || 0) + ' g) ist nicht gr\u00f6\u00dfer als der leere Topf (' + topfGewicht + ' g). Zahlendreher? Ohne Inhalt gibt es keine Portion.</div>';
+      } else {
+        html += '<div style="font-size:11px;color:#64748b;margin-top:4px;">Netto: ' + Math.round(endWN) + ' g (abzgl. ' + topfGewicht + 'g Topf)</div>';
+      }
     }
   }
 
@@ -532,6 +539,7 @@ function renderRechner() {
     window._antShared = ant;
   } else {
     window._portionCache = null;
+    html += '<div style="font-size:11px;color:#64748b;margin-top:10px;">\u{1F4A1} Die Portion wird berechnet, sobald ein Fertiggewicht eingetragen ist.</div>';
     if (STATE.pMode === "anteil") window._antShared = Math.max(0, Math.min(pf(STATE.pInput) || 0, 1));
   }
   var plateExtras = sumM(plateOnlyExtras);
