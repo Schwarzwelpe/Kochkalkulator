@@ -45,7 +45,7 @@ window.addEventListener("unhandledrejection", function (e) {
   showError("Fehler (Promise):", e.reason && e.reason.message ? e.reason.message : String(e.reason));
 });
 
-var APP_VERSION = "1.3.2";
+var APP_VERSION = "1.3.3";
 var DROPBOX_APP_KEY = "nns9uy3os0aolu9";
 var REDIRECT_URI = window.location.origin + window.location.pathname;
 var DATA_FILE_PATH = "/kochkalkulator-daten.json";
@@ -463,7 +463,11 @@ function renderRechner() {
     var pg = STATE.pMode === "grams" ? val : (per100.kcal > 0 ? val / (per100.kcal / 100) : 0);
     var ant = endWN > 0 ? Math.min(pg / endWN, 1) : 0;
     var portion = { kcal: totals.kcal * ant, protein: totals.protein * ant, carbs: totals.carbs * ant, fat: totals.fat * ant, leucin: totals.leucin * ant };
-    html += '<div style="background:#0f1117;border-radius:8px;padding:10px;margin-top:8px;"><div style="font-size:10px;color:#4ade80;margin-bottom:4px;">\u{1F525} Aus dem Topf</div>' + macroLine(portion) + '</div>';
+    var pgCapped = Math.min(pg, endWN);
+    html += '<div style="background:#0f1117;border-radius:8px;padding:10px;margin-top:8px;"><div style="font-size:10px;color:#4ade80;margin-bottom:4px;">\u{1F525} Aus dem Topf — ' + Math.round(pgCapped) + ' g</div>' + macroLine(portion) + '</div>';
+    if (pg > endWN) {
+      html += '<div style="font-size:10px;color:#fdba74;margin-top:4px;">⚠ Gewünschte kcal entsprechen ' + Math.round(pg) + 'g — mehr als die ' + Math.round(endWN) + 'g im Topf. Portion auf 100% des Topfs begrenzt.</div>';
+    }
 
     window._portionCache = portion;
   } else {
