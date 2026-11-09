@@ -45,7 +45,7 @@ window.addEventListener("unhandledrejection", function (e) {
   showError("Fehler (Promise):", e.reason && e.reason.message ? e.reason.message : String(e.reason));
 });
 
-var APP_VERSION = "1.5.1";
+var APP_VERSION = "1.5.2";
 var DROPBOX_APP_KEY = "nns9uy3os0aolu9";
 var REDIRECT_URI = window.location.origin + window.location.pathname;
 var DATA_FILE_PATH = "/kochkalkulator-daten.json";
@@ -255,9 +255,22 @@ var STATE = {
   activeRecipeName: null,
   saving: false,
   activeAnkerDbId: null,
-  ingsBaseline: null
+  ingsBaseline: null,
+  garSel: "",
+  garVal: "",
+  garSide: "roh",
+  garEditId: null
 };
 
+function garFactor(ref) {
+  var r = ref ? pf(ref.garRoh) : 0, g = ref ? pf(ref.garGekocht) : 0;
+  return r > 0 && g > 0 ? g / r : 0;
+}
+function pf(v) { return parseFloat(String(v == null ? "" : v).replace(",", ".")); }
+function todayDE() {
+  var d = new Date();
+  return ("0" + d.getDate()).slice(-2) + "." + ("0" + (d.getMonth() + 1)).slice(-2) + "." + d.getFullYear();
+}
 function cuid() { return Date.now() + "_" + Math.random().toString(36).slice(2); }
 
 // ============ DATEN LADEN / SPEICHERN (Dropbox) ============
@@ -291,7 +304,7 @@ function persistData() {
 
 // ============ BERECHNUNG ============
 function calcM(ing) {
-  var g = parseFloat(ing.grams) || 0;
+  var g = pf(ing.grams) || 0;
   if (!g || !ing.dbId) return { kcal: 0, protein: 0, carbs: 0, fat: 0, leucin: 0 };
   var ref = STATE.db.find(function (e) { return e.id === ing.dbId; });
   if (!ref) return { kcal: 0, protein: 0, carbs: 0, fat: 0, leucin: 0 };
@@ -404,6 +417,9 @@ function renderIngRow(ing, cssClass) {
   if (hasData) {
     html += '<div style="margin-top:6px;font-size:11px;"><span style="color:#64748b;margin-right:8px;">' + ref.kcal + ' kcal/100g</span>' + macroLine(m) + '</div>';
   }
+  if (hasData && garFactor(ref) > 0) {
+    html += '<div style="font-size:11px;color:#7dd3fc;margin-top:4px;">\u2248 ' + Math.round(pf(ing.grams) * garFactor(ref)) + ' g gekocht</div>';
+  }
   if (isAnker) {
     html += '<div style="font-size:10px;color:#fbbf24;margin-top:4px;">\u2605 Anker-Zutat \u2014 \u00e4nderst du die Menge, skalieren alle anderen Zutaten unten automatisch mit.</div>';
   }
@@ -415,11 +431,12 @@ function renderIngRow(ing, cssClass) {
 function renderRechner() {
   var totals = sumM(STATE.ings);
   var totalsExtras = sumM(STATE.extras);
-  var rawG = STATE.ings.reduce(function (s, i) { return s + (parseFloat(i.grams) || 0); }, 0);
+  var rawG = STATE.ings.reduce(function (s, i) { return s + (pf(i.grams) || 0); }, 0);
 
   var topfGewicht = STATE.selectedTopf ? (STATE.toepfe.find(function (t) { return t.id === STATE.selectedTopf; }) || {}).weight || 0 : 0;
-  var endWN = STATE.taraMode ? Math.max(0, (parseFloat(STATE.bruttoW) || 0) - topfGewicht) : (parseFloat(STATE.endW) || 0);
-  var weightWarning = endWN > 0 && rawG > 0 && endWN >= rawG;
+  var endWN = STATE.taraMode ? Math.max(0, (pf(STATE.bruttoW) || 0) - topfGewicht) : (pf(STATE.endW) || 0);
+  var hasGar = STATE.ings.some(function (i) { return i.dbId && garFactor(STATE.db.find(function (e) { return e.id === i.dbId; })) > 0; });
+  var weightWarning = endWN > 0 && rawG > 0 && endWN >= rawG && !hasGar;
 
   var html = '<div style="background:#151922;border:1px solid #1e2433;border-radius:10px;padding:12px;margin-bottom:12px;">';
   html += '<div style="font-size:11px;font-weight:600;color:#4ade80;margin-bottom:8px;">\u{1F525} Eingekochte Zutaten (Rohgewicht)</div>';
@@ -455,7 +472,8 @@ function renderRechner() {
   if (weightWarning) {
     html += '<div style="background:#2b1a0c;border:1px solid #92400e;color:#fdba74;border-radius:7px;padding:8px 12px;font-size:12px;margin-top:8px;">\u26a0 Fertiggewicht (' + Math.round(endWN) + 'g) \u2265 Rohgewicht (' + Math.round(rawG) + 'g). Bitte pr\u00fcfen.</div>';
   } else if (endWN > 0 && rawG > 0) {
-    html += '<div style="font-size:10px;color:#64748b;margin-top:4px;">Gewichtsverlust: ' + Math.round((1 - endWN / rawG) * 100) + '%</div>';
+    var chg = Math.round((endWN / rawG - 1) * 100);
+    html += '<div style="font-size:10px;color:#64748b;margin-top:4px;">' + (chg >= 0 ? 'Gewichtszunahme (Quellung): +' + chg : 'Gewichtsverlust: ' + (-chg)) + '%</div>';
   }
 
   if (endWN > 0 && totals.kcal > 0) {
@@ -470,7 +488,7 @@ function renderRechner() {
     html += '</div>';
     html += '<input id="pInputField" type="text" inputmode="decimal" placeholder="' + (STATE.pMode === "anteil" ? "z.B. 0.7" : "z.B. 600") + '" value="' + esc(STATE.pInput) + '" style="background:#0f1117;border:1px solid #1e2433;border-radius:7px;color:#e2e8f0;font-size:14px;padding:8px;width:100%;">';
 
-    var val = parseFloat(STATE.pInput) || 0;
+    var val = pf(STATE.pInput) || 0;
     var pg = STATE.pMode === "grams" ? val : STATE.pMode === "kcal" ? (per100.kcal > 0 ? val / (per100.kcal / 100) : 0) : (val * endWN);
     var ant = endWN > 0 ? Math.min(pg / endWN, 1) : 0;
     var portion = { kcal: totals.kcal * ant, protein: totals.protein * ant, carbs: totals.carbs * ant, fat: totals.fat * ant, leucin: totals.leucin * ant };
@@ -516,6 +534,8 @@ function renderRechner() {
     html += '</div>';
   }
 
+  html += renderGarConverter();
+
   html += '<div style="background:#1a1f2e;border:1px solid #2d3f5e;border-radius:10px;padding:12px;">';
   if (STATE.activeRecipeName) {
     html += '<div style="font-size:13px;color:#fb923c;font-weight:600;margin-bottom:8px;">\u{1F4CB} ' + esc(STATE.activeRecipeName) + '</div>';
@@ -531,6 +551,34 @@ function renderRechner() {
 
   document.getElementById("tabContent").innerHTML = html;
   wireRechnerEvents();
+}
+
+function renderGarConverter() {
+  var gar = STATE.db.filter(function (e) { return garFactor(e) > 0; });
+  if (gar.length === 0) return "";
+  var sel = gar.find(function (e) { return String(e.id) === String(STATE.garSel); }) || gar[0];
+  var f = garFactor(sel);
+  var v = STATE.garVal;
+  var roh, gek;
+  if (STATE.garSide === "roh") { roh = v; gek = pf(v) > 0 ? String(Math.round(pf(v) * f)) : ""; }
+  else { gek = v; roh = pf(v) > 0 ? String(Math.round(pf(v) / f * 10) / 10) : ""; }
+  var inp = 'style="background:#0f1117;border:1px solid #1e2433;border-radius:7px;color:#e2e8f0;font-size:14px;padding:8px;width:100%;"';
+  var html = '<div style="background:#151922;border:1px solid #1e3a4a;border-radius:10px;padding:12px;margin-bottom:12px;">';
+  html += '<div style="font-size:11px;font-weight:600;color:#7dd3fc;margin-bottom:8px;">\u2696\ufe0f Roh \u2194 Gekocht</div>';
+  html += '<select id="garSelect" style="background:#0f1117;border:1px solid #1e2433;border-radius:7px;color:#e2e8f0;font-size:14px;padding:8px;width:100%;margin-bottom:8px;">';
+  gar.forEach(function (e) { html += '<option value="' + e.id + '"' + (e.id === sel.id ? " selected" : "") + '>' + esc(e.name) + '</option>'; });
+  html += '</select>';
+  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">';
+  html += '<div><div style="font-size:10px;color:#64748b;margin-bottom:3px;">Roh (Yazio) g</div><input id="garRohInput" type="text" inputmode="decimal" value="' + esc(roh) + '" ' + inp + '></div>';
+  html += '<div><div style="font-size:10px;color:#64748b;margin-bottom:3px;">Gekocht (Teller) g</div><input id="garGekInput" type="text" inputmode="decimal" value="' + esc(gek) + '" ' + inp + '></div>';
+  html += '</div>';
+  var info = 'Faktor ' + f.toFixed(2).replace(".", ",") + '\u00d7 (' + pf(sel.garRoh) + ' g roh \u2192 ' + pf(sel.garGekocht) + ' g gekocht';
+  if (sel.garDatum) info += ', verifiziert ' + esc(sel.garDatum);
+  info += ')';
+  html += '<div style="font-size:10px;color:#64748b;margin-top:6px;">' + info + ' \u00b7 ' + Math.round(sel.kcal / f) + ' kcal/100g gekocht</div>';
+  if (sel.garHinweis) html += '<div style="font-size:10px;color:#94a3b8;margin-top:3px;">' + esc(sel.garHinweis) + '</div>';
+  html += '</div>';
+  return html;
 }
 
 function refocus(selector, cursorPos) {
@@ -562,7 +610,7 @@ function wireRechnerEvents() {
         STATE.ingsBaseline = null;
       } else {
         STATE.activeAnkerDbId = ing.dbId;
-        STATE.ingsBaseline = STATE.ings.map(function (i) { return { dbId: i.dbId, grams: parseFloat(i.grams) || 0 }; });
+        STATE.ingsBaseline = STATE.ings.map(function (i) { return { dbId: i.dbId, grams: pf(i.grams) || 0 }; });
       }
       renderRechner();
     });
@@ -575,7 +623,7 @@ function wireRechnerEvents() {
       if (STATE.activeAnkerDbId && STATE.ingsBaseline && ing.dbId === STATE.activeAnkerDbId) {
         var baseEntry = STATE.ingsBaseline.find(function (b) { return b.dbId === STATE.activeAnkerDbId; });
         var baseAmount = baseEntry ? baseEntry.grams : 0;
-        var newAmount = parseFloat(inp.value) || 0;
+        var newAmount = pf(inp.value) || 0;
         var factor = baseAmount > 0 ? newAmount / baseAmount : 0;
         STATE.ings.forEach(function (i) {
           if (i.id === ing.id) return;
@@ -640,6 +688,18 @@ function wireRechnerEvents() {
   if (pModeGrams) pModeGrams.addEventListener("click", function () { STATE.pMode = "grams"; renderRechner(); });
   var pModeKcal = document.getElementById("pModeKcal");
   if (pModeKcal) pModeKcal.addEventListener("click", function () { STATE.pMode = "kcal"; renderRechner(); });
+  var garSelectEl = document.getElementById("garSelect");
+  if (garSelectEl) garSelectEl.addEventListener("change", function () { STATE.garSel = garSelectEl.value; renderRechner(); });
+  var garRohEl = document.getElementById("garRohInput");
+  if (garRohEl) garRohEl.addEventListener("input", function () {
+    STATE.garVal = garRohEl.value; STATE.garSide = "roh";
+    var pos = garRohEl.selectionStart; renderRechner(); refocus("#garRohInput", pos);
+  });
+  var garGekEl = document.getElementById("garGekInput");
+  if (garGekEl) garGekEl.addEventListener("input", function () {
+    STATE.garVal = garGekEl.value; STATE.garSide = "gekocht";
+    var pos = garGekEl.selectionStart; renderRechner(); refocus("#garGekInput", pos);
+  });
   var pModeAnteil = document.getElementById("pModeAnteil");
   if (pModeAnteil) pModeAnteil.addEventListener("click", function () { STATE.pMode = "anteil"; renderRechner(); });
 
@@ -670,7 +730,7 @@ function wireRechnerEvents() {
 
     var existing = STATE.recipes.find(function (r) { return r.name.toLowerCase() === name.toLowerCase(); });
     var topfGewicht = STATE.selectedTopf ? (STATE.toepfe.find(function (t) { return t.id === STATE.selectedTopf; }) || {}).weight || 0 : 0;
-    var endWN = STATE.taraMode ? Math.max(0, (parseFloat(STATE.bruttoW) || 0) - topfGewicht) : (parseFloat(STATE.endW) || 0);
+    var endWN = STATE.taraMode ? Math.max(0, (pf(STATE.bruttoW) || 0) - topfGewicht) : (pf(STATE.endW) || 0);
     var recipeData = {
       ingredients: STATE.ings.map(function (i) { return { dbId: i.dbId, grams: i.grams }; }),
       extras: STATE.extras.map(function (i) { return { dbId: i.dbId, grams: i.grams }; }),
@@ -707,13 +767,13 @@ function wireRechnerEvents() {
 function recipePortionStats(r) {
   var rawTotals = sumM(r.ingredients);
   var extrasTotals = sumM(r.extras || []);
-  var rawG = r.ingredients.reduce(function (s, i) { return s + (parseFloat(i.grams) || 0); }, 0);
-  var endWN = parseFloat(r.endW) || 0;
+  var rawG = r.ingredients.reduce(function (s, i) { return s + (pf(i.grams) || 0); }, 0);
+  var endWN = pf(r.endW) || 0;
 
   if (endWN > 0 && rawTotals.kcal > 0) {
     var per100 = { kcal: rawTotals.kcal / endWN * 100, protein: rawTotals.protein / endWN * 100, carbs: rawTotals.carbs / endWN * 100, fat: rawTotals.fat / endWN * 100 };
     var pMode = r.pMode || "grams";
-    var val = parseFloat(r.pInput) || 0;
+    var val = pf(r.pInput) || 0;
     var pg = pMode === "grams" ? val : pMode === "kcal" ? (per100.kcal > 0 ? val / (per100.kcal / 100) : 0) : (val * endWN);
     var ant = Math.min(pg / endWN, 1);
     var big = {
@@ -770,7 +830,7 @@ function renderRezepte() {
       STATE.selectedTopf = r.taraMode ? (r.selectedTopf || "") : "";
       STATE.bruttoW = r.taraMode ? (r.bruttoW || "") : "";
       STATE.activeAnkerDbId = r.ankerDbId || null;
-      STATE.ingsBaseline = STATE.ings.map(function (i) { return { dbId: i.dbId, grams: parseFloat(i.grams) || 0 }; });
+      STATE.ingsBaseline = STATE.ings.map(function (i) { return { dbId: i.dbId, grams: pf(i.grams) || 0 }; });
       STATE.tab = "rechner";
       renderApp();
     });
@@ -818,11 +878,29 @@ function renderDatenbank() {
   html += '<div style="background:#151922;border:1px solid #1e2433;border-radius:10px;padding:12px;">';
   html += '<div style="font-size:10px;text-transform:uppercase;color:#64748b;margin-bottom:8px;">Lebensmittel (' + STATE.db.length + ')</div>';
   sortedDb.forEach(function (e) {
-    html += '<div style="display:grid;grid-template-columns:1fr auto 28px;gap:6px;align-items:center;padding:6px 0;border-bottom:1px solid #1e2433;font-size:12px;">';
-    html += '<span>' + esc(e.name) + '</span>';
+    var hasG = garFactor(e) > 0;
+    html += '<div style="display:grid;grid-template-columns:1fr auto 28px 28px;gap:6px;align-items:center;padding:6px 0;border-bottom:1px solid #1e2433;font-size:12px;">';
+    html += '<span>' + esc(e.name) + (hasG ? ' <span style="color:#7dd3fc;font-size:10px;">\u00d7' + garFactor(e).toFixed(2).replace(".", ",") + '</span>' : '') + '</span>';
     html += '<span style="font-family:monospace;font-size:10px;color:#94a3b8;">' + e.kcal + 'kcal \u00b7 ' + e.protein + 'P</span>';
+    html += '<button class="garFoodBtn" data-id="' + e.id + '" title="Garfaktor" style="background:transparent;border:1px solid ' + (hasG ? '#0e7490' : '#334155') + ';color:' + (hasG ? '#7dd3fc' : '#94a3b8') + ';border-radius:5px;">\u2696</button>';
     html += '<button class="delFoodBtn" data-id="' + e.id + '" style="background:transparent;border:1px solid #334155;color:#94a3b8;border-radius:5px;">\u2715</button>';
     html += '</div>';
+    if (String(STATE.garEditId) === String(e.id)) {
+      var gi = 'style="background:#0f1117;border:1px solid #1e2433;border-radius:7px;color:#e2e8f0;font-size:13px;padding:7px;width:100%;"';
+      html += '<div style="background:#0f1722;border:1px solid #1e3a4a;border-radius:8px;padding:10px;margin:4px 0 8px;">';
+      html += '<div style="font-size:10px;color:#7dd3fc;margin-bottom:6px;">Garfaktor (roh \u2192 gekocht)</div>';
+      html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:6px;">';
+      html += '<input id="garE_roh" inputmode="decimal" placeholder="roh g" value="' + (e.garRoh || "") + '" ' + gi + '>';
+      html += '<input id="garE_gek" inputmode="decimal" placeholder="gekocht g" value="' + (e.garGekocht || "") + '" ' + gi + '>';
+      html += '<input id="garE_dat" placeholder="dd.mm.yyyy" value="' + esc(e.garDatum || todayDE()) + '" ' + gi + '>';
+      html += '</div>';
+      html += '<input id="garE_hint" placeholder="Hinweis (z.B. 100 g Nudeln auf 1 L Wasser, abgie\u00dfen)" value="' + esc(e.garHinweis || "") + '" ' + gi + ' style="margin-bottom:6px;">';
+      html += '<div style="display:flex;gap:6px;margin-top:6px;">';
+      html += '<button id="garE_save" style="flex:1;background:#059669;color:#fff;border:none;border-radius:7px;padding:8px;">Speichern</button>';
+      html += '<button id="garE_clear" style="background:transparent;border:1px solid #334155;color:#94a3b8;border-radius:7px;padding:8px;">Entfernen</button>';
+      html += '<button id="garE_cancel" style="background:transparent;border:1px solid #334155;color:#94a3b8;border-radius:7px;padding:8px;">Abbrechen</button>';
+      html += '</div></div>';
+    }
   });
   html += '</div>';
 
@@ -830,19 +908,45 @@ function renderDatenbank() {
 
   document.getElementById("addFoodBtn").addEventListener("click", function () {
     var name = document.getElementById("newFoodName").value.trim();
-    var kcal = parseFloat(document.getElementById("newFood_kcal").value);
+    var kcal = pf(document.getElementById("newFood_kcal").value);
     if (!name || isNaN(kcal)) { alert("Name und kcal sind Pflicht (0 ist erlaubt, z.B. bei Wasser)."); return; }
     var nums = STATE.db.map(function (e) { return e.num || 0; });
     var nextNum = nums.length ? Math.max.apply(null, nums) + 1 : 1;
     STATE.db.push({
       id: Date.now(), num: nextNum, name: name, kcal: kcal,
-      protein: parseFloat(document.getElementById("newFood_protein").value) || 0,
-      carbs: parseFloat(document.getElementById("newFood_carbs").value) || 0,
-      fat: parseFloat(document.getElementById("newFood_fat").value) || 0,
+      protein: pf(document.getElementById("newFood_protein").value) || 0,
+      carbs: pf(document.getElementById("newFood_carbs").value) || 0,
+      fat: pf(document.getElementById("newFood_fat").value) || 0,
       leu: 0.065
     });
     persistData().then(renderDatenbank);
   });
+  document.querySelectorAll(".garFoodBtn").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      STATE.garEditId = String(STATE.garEditId) === btn.dataset.id ? null : btn.dataset.id;
+      renderDatenbank();
+    });
+  });
+  var garSave = document.getElementById("garE_save");
+  if (garSave) {
+    var editItem = STATE.db.find(function (e) { return String(e.id) === String(STATE.garEditId); });
+    garSave.addEventListener("click", function () {
+      var r = pf(document.getElementById("garE_roh").value), g = pf(document.getElementById("garE_gek").value);
+      if (!(r > 0) || !(g > 0)) { alert("Roh- und Gekocht-Gewicht m\u00fcssen > 0 sein."); return; }
+      editItem.garRoh = r; editItem.garGekocht = g;
+      editItem.garDatum = document.getElementById("garE_dat").value.trim() || todayDE();
+      var h = document.getElementById("garE_hint").value.trim();
+      if (h) editItem.garHinweis = h; else delete editItem.garHinweis;
+      STATE.garEditId = null;
+      persistData().then(renderDatenbank);
+    });
+    document.getElementById("garE_clear").addEventListener("click", function () {
+      delete editItem.garRoh; delete editItem.garGekocht; delete editItem.garDatum; delete editItem.garHinweis;
+      STATE.garEditId = null;
+      persistData().then(renderDatenbank);
+    });
+    document.getElementById("garE_cancel").addEventListener("click", function () { STATE.garEditId = null; renderDatenbank(); });
+  }
   document.querySelectorAll(".delFoodBtn").forEach(function (btn) {
     btn.addEventListener("click", function () {
       STATE.db = STATE.db.filter(function (e) { return e.id !== parseInt(btn.dataset.id, 10); });
@@ -851,7 +955,7 @@ function renderDatenbank() {
   });
   document.getElementById("addTopfBtn").addEventListener("click", function () {
     var name = document.getElementById("newTopfName").value.trim();
-    var weight = parseFloat(document.getElementById("newTopfWeight").value);
+    var weight = pf(document.getElementById("newTopfWeight").value);
     if (!name || !weight) { alert("Name und Gewicht sind Pflicht."); return; }
     STATE.toepfe.push({ id: cuid(), name: name, weight: weight });
     persistData().then(renderDatenbank);
