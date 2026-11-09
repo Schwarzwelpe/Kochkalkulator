@@ -45,7 +45,7 @@ window.addEventListener("unhandledrejection", function (e) {
   showError("Fehler (Promise):", e.reason && e.reason.message ? e.reason.message : String(e.reason));
 });
 
-var APP_VERSION = "1.5.3";
+var APP_VERSION = "1.5.4";
 var DROPBOX_APP_KEY = "nns9uy3os0aolu9";
 var REDIRECT_URI = window.location.origin + window.location.pathname;
 var DATA_FILE_PATH = "/kochkalkulator-daten.json";
@@ -416,7 +416,7 @@ function renderIngRow(ing, cssClass) {
     html += '<button class="ingAnkerBtn" data-id="' + ing.id + '" title="Als Anker-Zutat markieren" style="background:' + (isAnker ? "#d97706" : "transparent") + ';border:1px solid #334155;border-radius:6px;color:' + (isAnker ? "#fff" : "#64748b") + ';height:36px;">\u2605</button>';
   }
   if (showShare) {
-    html += '<button class="extraShareBtn" data-id="' + ing.id + '" title="Geteilt: zählt zur Gesamtmasse, auf den Teller kommt nur dein Anteil" style="background:' + (shared ? "#0e7490" : "transparent") + ';border:1px solid ' + (shared ? "#0e7490" : "#334155") + ';border-radius:6px;color:' + (shared ? "#fff" : "#64748b") + ';height:36px;font-size:13px;">\u00f7</button>';
+    html += '<button class="extraShareBtn" data-id="' + ing.id + '" title="In der Pfanne: wird mitgewogen und mit dem Anteil geteilt, verliert aber beim Einkochen kein Gewicht" style="background:' + (shared ? "#0e7490" : "transparent") + ';border:1px solid ' + (shared ? "#0e7490" : "#334155") + ';border-radius:6px;color:' + (shared ? "#fff" : "#64748b") + ';height:36px;font-size:13px;">\u00f7</button>';
   }
   html += '<select class="' + cssClass + 'Select" data-id="' + ing.id + '" style="background:#0f1117;border:1px solid #1e2433;border-radius:7px;color:#e2e8f0;font-size:14px;padding:8px;">';
   html += '<option value="">-- Zutat --</option>';
@@ -432,7 +432,7 @@ function renderIngRow(ing, cssClass) {
   }
   if (shared && hasData) {
     var totG = pf(ing.grams) || 0;
-    html += '<div style="font-size:11px;color:#7dd3fc;margin-top:4px;">\u00f7 geteilt \u00b7 Du: ' + (Math.round(gShare * 10) / 10) + ' g \u00b7 Rest: ' + (Math.round((totG - gShare) * 10) / 10) + ' g</div>';
+    html += '<div style="font-size:11px;color:#7dd3fc;margin-top:4px;">\u00f7 in der Pfanne \u00b7 Du: ' + (Math.round(gShare * 10) / 10) + ' g \u00b7 Rest: ' + (Math.round((totG - gShare) * 10) / 10) + ' g</div>';
   }
   if (hasData && garFactor(ref) > 0) {
     var gf = garFactor(ref);
@@ -450,11 +450,20 @@ function renderRechner() {
   var totals = sumM(STATE.ings);
   var totalsExtras = sumM(STATE.extras);
   var rawG = STATE.ings.reduce(function (s, i) { return s + (pf(i.grams) || 0); }, 0);
+  var panExtras = STATE.extras.filter(function (i) { return i.shared; });
+  var plateOnlyExtras = STATE.extras.filter(function (i) { return !i.shared; });
+  var panExtrasW = panExtras.reduce(function (s, i) {
+    var f = garFactor(STATE.db.find(function (e) { return e.id === i.dbId; }));
+    return s + (pf(i.grams) || 0) * (f > 0 ? f : 1);
+  }, 0);
+  var panExtrasTot = sumM(panExtras);
+  var panTotals = { kcal: totals.kcal + panExtrasTot.kcal, protein: totals.protein + panExtrasTot.protein, carbs: totals.carbs + panExtrasTot.carbs, fat: totals.fat + panExtrasTot.fat, leucin: totals.leucin + panExtrasTot.leucin };
+  var expectedPan = rawG + panExtrasW;
 
   var topfGewicht = STATE.selectedTopf ? (STATE.toepfe.find(function (t) { return t.id === STATE.selectedTopf; }) || {}).weight || 0 : 0;
   var endWN = STATE.taraMode ? Math.max(0, (pf(STATE.bruttoW) || 0) - topfGewicht) : (pf(STATE.endW) || 0);
   var hasGar = STATE.ings.some(function (i) { return i.dbId && garFactor(STATE.db.find(function (e) { return e.id === i.dbId; })) > 0; });
-  var weightWarning = endWN > 0 && rawG > 0 && endWN >= rawG && !hasGar;
+  var weightWarning = endWN > 0 && expectedPan > 0 && endWN >= expectedPan && !hasGar;
 
   window._antShared = 0;
   var html = '<div style="background:#151922;border:1px solid #1e2433;border-radius:10px;padding:12px;margin-bottom:12px;">';
@@ -489,14 +498,14 @@ function renderRechner() {
   }
 
   if (weightWarning) {
-    html += '<div style="background:#2b1a0c;border:1px solid #92400e;color:#fdba74;border-radius:7px;padding:8px 12px;font-size:12px;margin-top:8px;">\u26a0 Fertiggewicht (' + Math.round(endWN) + 'g) \u2265 Rohgewicht (' + Math.round(rawG) + 'g). Bitte pr\u00fcfen.</div>';
-  } else if (endWN > 0 && rawG > 0) {
-    var chg = Math.round((endWN / rawG - 1) * 100);
-    html += '<div style="font-size:10px;color:#64748b;margin-top:4px;">' + (chg >= 0 ? 'Gewichtszunahme (Quellung): +' + chg : 'Gewichtsverlust: ' + (-chg)) + '%</div>';
+    html += '<div style="background:#2b1a0c;border:1px solid #92400e;color:#fdba74;border-radius:7px;padding:8px 12px;font-size:12px;margin-top:8px;">\u26a0 Fertiggewicht (' + Math.round(endWN) + 'g) \u2265 Rohgewicht (' + Math.round(expectedPan) + 'g). Bitte pr\u00fcfen.</div>';
+  } else if (endWN > 0 && expectedPan > 0) {
+    var chg = Math.round((endWN / expectedPan - 1) * 100);
+    html += '<div style="font-size:10px;color:#64748b;margin-top:4px;">' + (chg >= 0 ? 'Gewichtszunahme (Quellung): +' + chg : 'Gewichtsverlust: ' + (-chg)) + '%' + (panExtras.length ? ' (Basis: Zutaten ' + Math.round(rawG) + ' g + Pfannen-Beilagen gekocht ' + Math.round(panExtrasW) + ' g)' : '') + '</div>';
   }
 
-  if (endWN > 0 && totals.kcal > 0) {
-    var per100 = { kcal: totals.kcal / endWN * 100, protein: totals.protein / endWN * 100, carbs: totals.carbs / endWN * 100, fat: totals.fat / endWN * 100 };
+  if (endWN > 0 && panTotals.kcal > 0) {
+    var per100 = { kcal: panTotals.kcal / endWN * 100, protein: panTotals.protein / endWN * 100, carbs: panTotals.carbs / endWN * 100, fat: panTotals.fat / endWN * 100 };
     html += '<div style="font-size:11px;color:#475569;margin-top:8px;font-family:monospace;">' + Math.round(per100.kcal) + ' kcal \u00b7 ' + per100.protein.toFixed(1) + 'P \u00b7 ' + per100.carbs.toFixed(1) + 'KH \u00b7 ' + per100.fat.toFixed(1) + 'F pro 100g</div>';
 
     html += '<div style="margin-top:12px;font-size:10px;text-transform:uppercase;color:#64748b;">Meine Portion aus dem Topf</div>';
@@ -510,7 +519,7 @@ function renderRechner() {
     var val = pf(STATE.pInput) || 0;
     var pg = STATE.pMode === "grams" ? val : STATE.pMode === "kcal" ? (per100.kcal > 0 ? val / (per100.kcal / 100) : 0) : (val * endWN);
     var ant = endWN > 0 ? Math.min(pg / endWN, 1) : 0;
-    var portion = { kcal: totals.kcal * ant, protein: totals.protein * ant, carbs: totals.carbs * ant, fat: totals.fat * ant, leucin: totals.leucin * ant };
+    var portion = { kcal: panTotals.kcal * ant, protein: panTotals.protein * ant, carbs: panTotals.carbs * ant, fat: panTotals.fat * ant, leucin: panTotals.leucin * ant };
     var pgCapped = Math.min(pg, endWN);
     var anteilVal = endWN > 0 ? pgCapped / endWN : 0;
     html += '<div style="background:#0f1117;border-radius:8px;padding:10px;margin-top:8px;"><div style="font-size:10px;color:#4ade80;margin-bottom:4px;">\u{1F525} Aus dem Topf — ' + Math.round(pgCapped) + ' g · Anteil ' + anteilVal.toFixed(2) + '</div>' + macroLine(portion) + '</div>';
@@ -524,7 +533,7 @@ function renderRechner() {
     window._portionCache = null;
     if (STATE.pMode === "anteil") window._antShared = Math.max(0, Math.min(pf(STATE.pInput) || 0, 1));
   }
-  var plateExtras = sumM(scaleExtras(STATE.extras, window._antShared));
+  var plateExtras = sumM(plateOnlyExtras);
   var anyShared = STATE.extras.some(function (i) { return i.shared; });
   html += '</div>';
 
@@ -536,7 +545,7 @@ function renderRechner() {
   }
   STATE.extras.forEach(function (ing) { html += renderIngRow(ing, "extra"); });
   if (STATE.extras.length > 0) {
-    html += '<div style="background:#1e2b1a;border-radius:7px;padding:10px;margin-top:4px;">' + (anyShared ? 'Beilagen auf deinem Teller (Anteil ' + window._antShared.toFixed(2) + ')' : 'Beilagen gesamt') + '<br>' + macroLine(plateExtras) + '</div>';
+    html += '<div style="background:#1e2b1a;border-radius:7px;padding:10px;margin-top:4px;">' + (anyShared ? 'Au\u00dferhalb der Pfanne (voll auf dem Teller)' : 'Beilagen gesamt') + '<br>' + macroLine(plateExtras) + '</div>';
   }
   html += '<button id="addExtraBtn" style="width:100%;margin-top:8px;background:transparent;border:1px solid #2d3f1e;color:#86efac;border-radius:7px;padding:9px;">+ Beilage</button>';
   html += '</div>';
@@ -808,19 +817,20 @@ function recipePortionStats(r) {
   var rawG = r.ingredients.reduce(function (s, i) { return s + (pf(i.grams) || 0); }, 0);
   var endWN = pf(r.endW) || 0;
 
+  var pe = sumM((r.extras || []).filter(function (i) { return i.shared; }));
   if (endWN > 0 && rawTotals.kcal > 0) {
-    var per100 = { kcal: rawTotals.kcal / endWN * 100, protein: rawTotals.protein / endWN * 100, carbs: rawTotals.carbs / endWN * 100, fat: rawTotals.fat / endWN * 100 };
+    var per100 = { kcal: (rawTotals.kcal + pe.kcal) / endWN * 100, protein: (rawTotals.protein + pe.protein) / endWN * 100, carbs: (rawTotals.carbs + pe.carbs) / endWN * 100, fat: (rawTotals.fat + pe.fat) / endWN * 100 };
     var pMode = r.pMode || "grams";
     var val = pf(r.pInput) || 0;
     var pg = pMode === "grams" ? val : pMode === "kcal" ? (per100.kcal > 0 ? val / (per100.kcal / 100) : 0) : (val * endWN);
     var ant = Math.min(pg / endWN, 1);
-    var extrasTotals = sumM(scaleExtras(r.extras || [], ant));
+    var extrasTotals = sumM((r.extras || []).filter(function (i) { return !i.shared; }));
     var big = {
-      kcal: rawTotals.kcal * ant + extrasTotals.kcal,
-      protein: rawTotals.protein * ant + extrasTotals.protein,
-      carbs: rawTotals.carbs * ant + extrasTotals.carbs,
-      fat: rawTotals.fat * ant + extrasTotals.fat,
-      leucin: rawTotals.leucin * ant + extrasTotals.leucin
+      kcal: (rawTotals.kcal + pe.kcal) * ant + extrasTotals.kcal,
+      protein: (rawTotals.protein + pe.protein) * ant + extrasTotals.protein,
+      carbs: (rawTotals.carbs + pe.carbs) * ant + extrasTotals.carbs,
+      fat: (rawTotals.fat + pe.fat) * ant + extrasTotals.fat,
+      leucin: (rawTotals.leucin + pe.leucin) * ant + extrasTotals.leucin
     };
     var pgCappedR = Math.min(pg, endWN);
     var anteilR = endWN > 0 ? pgCappedR / endWN : 0;
