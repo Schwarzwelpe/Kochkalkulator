@@ -45,7 +45,7 @@ window.addEventListener("unhandledrejection", function (e) {
   showError("Fehler (Promise):", e.reason && e.reason.message ? e.reason.message : String(e.reason));
 });
 
-var APP_VERSION = "1.5.2";
+var APP_VERSION = "1.5.3";
 var DROPBOX_APP_KEY = "nns9uy3os0aolu9";
 var REDIRECT_URI = window.location.origin + window.location.pathname;
 var DATA_FILE_PATH = "/kochkalkulator-daten.json";
@@ -262,6 +262,11 @@ var STATE = {
   garEditId: null
 };
 
+function scaleExtras(list, ant) {
+  return list.map(function (i) {
+    return i.shared ? { dbId: i.dbId, grams: (pf(i.grams) || 0) * ant } : i;
+  });
+}
 function garFactor(ref) {
   var r = ref ? pf(ref.garRoh) : 0, g = ref ? pf(ref.garGekocht) : 0;
   return r > 0 && g > 0 ? g / r : 0;
@@ -398,12 +403,20 @@ function renderIngRow(ing, cssClass) {
   var m = calcM(ing);
   var hasData = ing.grams && ing.dbId && ref;
   var showAnker = cssClass === "ing";
+  var showShare = cssClass === "extra";
+  var shared = showShare && !!ing.shared;
+  var antS = window._antShared || 0;
+  var gShare = shared ? (pf(ing.grams) || 0) * antS : (pf(ing.grams) || 0);
+  if (shared) m = calcM({ dbId: ing.dbId, grams: gShare });
   var isAnker = showAnker && ing.dbId && STATE.activeAnkerDbId === ing.dbId;
 
   var html = '<div style="background:#0f1117;border:1px solid ' + (isAnker ? "#92610e" : "#1a2233") + ';border-radius:7px;padding:10px;margin-bottom:8px;">';
-  html += '<div style="display:grid;grid-template-columns:' + (showAnker ? "28px 1fr 70px 32px" : "1fr 70px 32px") + ';gap:6px;align-items:center;">';
+  html += '<div style="display:grid;grid-template-columns:' + (showAnker || showShare ? "28px 1fr 70px 32px" : "1fr 70px 32px") + ';gap:6px;align-items:center;">';
   if (showAnker) {
     html += '<button class="ingAnkerBtn" data-id="' + ing.id + '" title="Als Anker-Zutat markieren" style="background:' + (isAnker ? "#d97706" : "transparent") + ';border:1px solid #334155;border-radius:6px;color:' + (isAnker ? "#fff" : "#64748b") + ';height:36px;">\u2605</button>';
+  }
+  if (showShare) {
+    html += '<button class="extraShareBtn" data-id="' + ing.id + '" title="Geteilt: zählt zur Gesamtmasse, auf den Teller kommt nur dein Anteil" style="background:' + (shared ? "#0e7490" : "transparent") + ';border:1px solid ' + (shared ? "#0e7490" : "#334155") + ';border-radius:6px;color:' + (shared ? "#fff" : "#64748b") + ';height:36px;font-size:13px;">\u00f7</button>';
   }
   html += '<select class="' + cssClass + 'Select" data-id="' + ing.id + '" style="background:#0f1117;border:1px solid #1e2433;border-radius:7px;color:#e2e8f0;font-size:14px;padding:8px;">';
   html += '<option value="">-- Zutat --</option>';
@@ -417,8 +430,13 @@ function renderIngRow(ing, cssClass) {
   if (hasData) {
     html += '<div style="margin-top:6px;font-size:11px;"><span style="color:#64748b;margin-right:8px;">' + ref.kcal + ' kcal/100g</span>' + macroLine(m) + '</div>';
   }
+  if (shared && hasData) {
+    var totG = pf(ing.grams) || 0;
+    html += '<div style="font-size:11px;color:#7dd3fc;margin-top:4px;">\u00f7 geteilt \u00b7 Du: ' + (Math.round(gShare * 10) / 10) + ' g \u00b7 Rest: ' + (Math.round((totG - gShare) * 10) / 10) + ' g</div>';
+  }
   if (hasData && garFactor(ref) > 0) {
-    html += '<div style="font-size:11px;color:#7dd3fc;margin-top:4px;">\u2248 ' + Math.round(pf(ing.grams) * garFactor(ref)) + ' g gekocht</div>';
+    var gf = garFactor(ref);
+    html += '<div style="font-size:11px;color:#7dd3fc;margin-top:4px;">\u2248 ' + Math.round(pf(ing.grams) * gf) + ' g gekocht' + (shared ? ' (du \u2248 ' + Math.round(gShare * gf) + ' g)' : '') + '</div>';
   }
   if (isAnker) {
     html += '<div style="font-size:10px;color:#fbbf24;margin-top:4px;">\u2605 Anker-Zutat \u2014 \u00e4nderst du die Menge, skalieren alle anderen Zutaten unten automatisch mit.</div>';
@@ -438,6 +456,7 @@ function renderRechner() {
   var hasGar = STATE.ings.some(function (i) { return i.dbId && garFactor(STATE.db.find(function (e) { return e.id === i.dbId; })) > 0; });
   var weightWarning = endWN > 0 && rawG > 0 && endWN >= rawG && !hasGar;
 
+  window._antShared = 0;
   var html = '<div style="background:#151922;border:1px solid #1e2433;border-radius:10px;padding:12px;margin-bottom:12px;">';
   html += '<div style="font-size:11px;font-weight:600;color:#4ade80;margin-bottom:8px;">\u{1F525} Eingekochte Zutaten (Rohgewicht)</div>';
   STATE.ings.forEach(function (ing) { html += renderIngRow(ing, "ing"); });
@@ -500,9 +519,13 @@ function renderRechner() {
     }
 
     window._portionCache = portion;
+    window._antShared = ant;
   } else {
     window._portionCache = null;
+    if (STATE.pMode === "anteil") window._antShared = Math.max(0, Math.min(pf(STATE.pInput) || 0, 1));
   }
+  var plateExtras = sumM(scaleExtras(STATE.extras, window._antShared));
+  var anyShared = STATE.extras.some(function (i) { return i.shared; });
   html += '</div>';
 
   // Extras / Beilagen
@@ -513,7 +536,7 @@ function renderRechner() {
   }
   STATE.extras.forEach(function (ing) { html += renderIngRow(ing, "extra"); });
   if (STATE.extras.length > 0) {
-    html += '<div style="background:#1e2b1a;border-radius:7px;padding:10px;margin-top:4px;">Beilagen gesamt<br>' + macroLine(totalsExtras) + '</div>';
+    html += '<div style="background:#1e2b1a;border-radius:7px;padding:10px;margin-top:4px;">' + (anyShared ? 'Beilagen auf deinem Teller (Anteil ' + window._antShared.toFixed(2) + ')' : 'Beilagen gesamt') + '<br>' + macroLine(plateExtras) + '</div>';
   }
   html += '<button id="addExtraBtn" style="width:100%;margin-top:8px;background:transparent;border:1px solid #2d3f1e;color:#86efac;border-radius:7px;padding:9px;">+ Beilage</button>';
   html += '</div>';
@@ -521,11 +544,11 @@ function renderRechner() {
   // Gesamt auf dem Teller
   if (window._portionCache) {
     var grand = {
-      kcal: window._portionCache.kcal + totalsExtras.kcal,
-      protein: window._portionCache.protein + totalsExtras.protein,
-      carbs: window._portionCache.carbs + totalsExtras.carbs,
-      fat: window._portionCache.fat + totalsExtras.fat,
-      leucin: window._portionCache.leucin + totalsExtras.leucin
+      kcal: window._portionCache.kcal + plateExtras.kcal,
+      protein: window._portionCache.protein + plateExtras.protein,
+      carbs: window._portionCache.carbs + plateExtras.carbs,
+      fat: window._portionCache.fat + plateExtras.fat,
+      leucin: window._portionCache.leucin + plateExtras.leucin
     };
     html += '<div style="background:#0f1117;border:2px solid #334155;border-radius:10px;padding:16px;margin-bottom:12px;">';
     html += '<div style="font-size:13px;font-weight:600;color:#f1f5f9;margin-bottom:4px;">\u{1F4CA} Gesamt auf dem Teller</div>';
@@ -556,7 +579,12 @@ function renderRechner() {
 function renderGarConverter() {
   var gar = STATE.db.filter(function (e) { return garFactor(e) > 0; });
   if (gar.length === 0) return "";
-  var sel = gar.find(function (e) { return String(e.id) === String(STATE.garSel); }) || gar[0];
+  var inRecipe = {};
+  STATE.ings.concat(STATE.extras).forEach(function (i) { if (i.dbId) inRecipe[i.dbId] = true; });
+  var garIn = gar.filter(function (e) { return inRecipe[e.id]; });
+  var garOut = gar.filter(function (e) { return !inRecipe[e.id]; });
+  var ordered = garIn.concat(garOut);
+  var sel = ordered.find(function (e) { return String(e.id) === String(STATE.garSel); }) || ordered[0];
   var f = garFactor(sel);
   var v = STATE.garVal;
   var roh, gek;
@@ -566,7 +594,11 @@ function renderGarConverter() {
   var html = '<div style="background:#151922;border:1px solid #1e3a4a;border-radius:10px;padding:12px;margin-bottom:12px;">';
   html += '<div style="font-size:11px;font-weight:600;color:#7dd3fc;margin-bottom:8px;">\u2696\ufe0f Roh \u2194 Gekocht</div>';
   html += '<select id="garSelect" style="background:#0f1117;border:1px solid #1e2433;border-radius:7px;color:#e2e8f0;font-size:14px;padding:8px;width:100%;margin-bottom:8px;">';
-  gar.forEach(function (e) { html += '<option value="' + e.id + '"' + (e.id === sel.id ? " selected" : "") + '>' + esc(e.name) + '</option>'; });
+  function garOpt(e) { return '<option value="' + e.id + '"' + (e.id === sel.id ? " selected" : "") + '>' + esc(e.name) + '</option>'; }
+  if (garIn.length && garOut.length) {
+    html += '<optgroup label="In diesem Rezept">' + garIn.map(garOpt).join("") + '</optgroup>';
+    html += '<optgroup label="Weitere">' + garOut.map(garOpt).join("") + '</optgroup>';
+  } else { ordered.forEach(function (e) { html += garOpt(e); }); }
   html += '</select>';
   html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">';
   html += '<div><div style="font-size:10px;color:#64748b;margin-bottom:3px;">Roh (Yazio) g</div><input id="garRohInput" type="text" inputmode="decimal" value="' + esc(roh) + '" ' + inp + '></div>';
@@ -648,6 +680,13 @@ function wireRechnerEvents() {
     btn.addEventListener("click", function () {
       STATE.ings = STATE.ings.filter(function (i) { return i.id !== btn.dataset.id; });
       if (STATE.ings.length === 0) STATE.ings = [{ id: cuid(), dbId: null, grams: "" }];
+      renderRechner();
+    });
+  });
+  document.querySelectorAll(".extraShareBtn").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var ing = STATE.extras.find(function (i) { return i.id === btn.dataset.id; });
+      ing.shared = !ing.shared;
       renderRechner();
     });
   });
@@ -733,7 +772,7 @@ function wireRechnerEvents() {
     var endWN = STATE.taraMode ? Math.max(0, (pf(STATE.bruttoW) || 0) - topfGewicht) : (pf(STATE.endW) || 0);
     var recipeData = {
       ingredients: STATE.ings.map(function (i) { return { dbId: i.dbId, grams: i.grams }; }),
-      extras: STATE.extras.map(function (i) { return { dbId: i.dbId, grams: i.grams }; }),
+      extras: STATE.extras.map(function (i) { var o = { dbId: i.dbId, grams: i.grams }; if (i.shared) o.shared = true; return o; }),
       endW: String(endWN || ""),
       taraMode: STATE.taraMode,
       selectedTopf: STATE.selectedTopf,
@@ -766,7 +805,6 @@ function wireRechnerEvents() {
 // ============ TAB: REZEPTE ============
 function recipePortionStats(r) {
   var rawTotals = sumM(r.ingredients);
-  var extrasTotals = sumM(r.extras || []);
   var rawG = r.ingredients.reduce(function (s, i) { return s + (pf(i.grams) || 0); }, 0);
   var endWN = pf(r.endW) || 0;
 
@@ -776,6 +814,7 @@ function recipePortionStats(r) {
     var val = pf(r.pInput) || 0;
     var pg = pMode === "grams" ? val : pMode === "kcal" ? (per100.kcal > 0 ? val / (per100.kcal / 100) : 0) : (val * endWN);
     var ant = Math.min(pg / endWN, 1);
+    var extrasTotals = sumM(scaleExtras(r.extras || [], ant));
     var big = {
       kcal: rawTotals.kcal * ant + extrasTotals.kcal,
       protein: rawTotals.protein * ant + extrasTotals.protein,
@@ -821,7 +860,7 @@ function renderRezepte() {
     btn.addEventListener("click", function () {
       var r = STATE.recipes.find(function (x) { return x.id === btn.dataset.id; });
       STATE.ings = r.ingredients.map(function (i) { return { id: cuid(), dbId: i.dbId, grams: i.grams }; });
-      STATE.extras = (r.extras || []).map(function (i) { return { id: cuid(), dbId: i.dbId, grams: i.grams }; });
+      STATE.extras = (r.extras || []).map(function (i) { return { id: cuid(), dbId: i.dbId, grams: i.grams, shared: !!i.shared }; });
       STATE.endW = r.endW || "";
       STATE.pInput = r.pInput || "600";
       STATE.pMode = r.pMode || "grams";
