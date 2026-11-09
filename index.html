@@ -45,7 +45,7 @@ window.addEventListener("unhandledrejection", function (e) {
   showError("Fehler (Promise):", e.reason && e.reason.message ? e.reason.message : String(e.reason));
 });
 
-var APP_VERSION = "1.5.0";
+var APP_VERSION = "1.5.1";
 var DROPBOX_APP_KEY = "nns9uy3os0aolu9";
 var REDIRECT_URI = window.location.origin + window.location.pathname;
 var DATA_FILE_PATH = "/kochkalkulator-daten.json";
@@ -831,7 +831,7 @@ function renderDatenbank() {
   document.getElementById("addFoodBtn").addEventListener("click", function () {
     var name = document.getElementById("newFoodName").value.trim();
     var kcal = parseFloat(document.getElementById("newFood_kcal").value);
-    if (!name || !kcal) { alert("Name und kcal sind Pflicht."); return; }
+    if (!name || isNaN(kcal)) { alert("Name und kcal sind Pflicht (0 ist erlaubt, z.B. bei Wasser)."); return; }
     var nums = STATE.db.map(function (e) { return e.num || 0; });
     var nextNum = nums.length ? Math.max.apply(null, nums) + 1 : 1;
     STATE.db.push({
