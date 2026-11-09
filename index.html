@@ -45,7 +45,7 @@ window.addEventListener("unhandledrejection", function (e) {
   showError("Fehler (Promise):", e.reason && e.reason.message ? e.reason.message : String(e.reason));
 });
 
-var APP_VERSION = "1.3.1";
+var APP_VERSION = "1.3.2";
 var DROPBOX_APP_KEY = "nns9uy3os0aolu9";
 var REDIRECT_URI = window.location.origin + window.location.pathname;
 var DATA_FILE_PATH = "/kochkalkulator-daten.json";
@@ -260,7 +260,11 @@ function cuid() { return Date.now() + "_" + Math.random().toString(36).slice(2);
 
 // ============ DATEN LADEN / SPEICHERN (Dropbox) ============
 function loadData() {
-  return dbxDownload(STATE.accessToken, DATA_FILE_PATH).then(function (text) {
+  return getValidAccessToken().then(function (accessToken) {
+    if (!accessToken) throw new Error("Nicht angemeldet — bitte neu einloggen.");
+    STATE.accessToken = accessToken;
+    return dbxDownload(accessToken, DATA_FILE_PATH);
+  }).then(function (text) {
     if (!text) {
       STATE.db = DEFAULT_DB.slice();
       STATE.recipes = DEFAULT_RECIPES.slice();
@@ -276,7 +280,11 @@ function loadData() {
 
 function persistData() {
   var payload = JSON.stringify({ db: STATE.db, recipes: STATE.recipes, toepfe: STATE.toepfe, savedAt: new Date().toISOString() }, null, 2);
-  return dbxUpload(STATE.accessToken, DATA_FILE_PATH, payload);
+  return getValidAccessToken().then(function (accessToken) {
+    if (!accessToken) throw new Error("Nicht angemeldet — bitte neu einloggen.");
+    STATE.accessToken = accessToken;
+    return dbxUpload(accessToken, DATA_FILE_PATH, payload);
+  });
 }
 
 // ============ BERECHNUNG ============
