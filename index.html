@@ -45,7 +45,7 @@ window.addEventListener("unhandledrejection", function (e) {
   showError("Fehler (Promise):", e.reason && e.reason.message ? e.reason.message : String(e.reason));
 });
 
-var APP_VERSION = "1.5.6";
+var APP_VERSION = "1.5.7";
 var DROPBOX_APP_KEY = "nns9uy3os0aolu9";
 var REDIRECT_URI = window.location.origin + window.location.pathname;
 var DATA_FILE_PATH = "/kochkalkulator-daten.json";
@@ -263,6 +263,18 @@ var STATE = {
   foodEditId: null
 };
 
+function syncBaseline(ing) {
+  if (!STATE.activeAnkerDbId || !STATE.ingsBaseline) return;
+  var anchor = STATE.ings.find(function (i) { return i.dbId === STATE.activeAnkerDbId; });
+  if (!anchor || anchor.id === ing.id) return;
+  var baseAnchor = STATE.ingsBaseline.find(function (b) { return b.dbId === STATE.activeAnkerDbId; });
+  var A = pf(anchor.grams) || 0, B = baseAnchor ? baseAnchor.grams : 0;
+  if (!(A > 0) || !(B > 0)) return;
+  var entry = STATE.ingsBaseline.find(function (b) { return b.id === ing.id; });
+  if (!entry) { entry = { id: ing.id, dbId: ing.dbId, grams: 0 }; STATE.ingsBaseline.push(entry); }
+  entry.dbId = ing.dbId;
+  entry.grams = (pf(ing.grams) || 0) * B / A;
+}
 function scaleExtras(list, ant) {
   return list.map(function (i) {
     return i.shared ? { dbId: i.dbId, grams: (pf(i.grams) || 0) * ant } : i;
@@ -641,6 +653,7 @@ function wireRechnerEvents() {
     sel.addEventListener("change", function () {
       var ing = STATE.ings.find(function (i) { return i.id === sel.dataset.id; });
       ing.dbId = sel.value ? parseInt(sel.value, 10) : null;
+      syncBaseline(ing);
       renderRechner();
     });
   });
@@ -660,7 +673,7 @@ function wireRechnerEvents() {
         STATE.ingsBaseline = null;
       } else {
         STATE.activeAnkerDbId = ing.dbId;
-        STATE.ingsBaseline = STATE.ings.map(function (i) { return { dbId: i.dbId, grams: pf(i.grams) || 0 }; });
+        STATE.ingsBaseline = STATE.ings.map(function (i) { return { id: i.id, dbId: i.dbId, grams: pf(i.grams) || 0 }; });
       }
       renderRechner();
     });
@@ -677,9 +690,11 @@ function wireRechnerEvents() {
         var factor = baseAmount > 0 ? newAmount / baseAmount : 0;
         STATE.ings.forEach(function (i) {
           if (i.id === ing.id) return;
-          var b = STATE.ingsBaseline.find(function (x) { return x.dbId === i.dbId; });
+          var b = STATE.ingsBaseline.find(function (x) { return x.id === i.id; });
           if (b) i.grams = String(Math.round(b.grams * factor * 10) / 10);
         });
+      } else {
+        syncBaseline(ing);
       }
       renderRechner();
       refocus('.ingGrams[data-id="' + ing.id + '"]', cursorPos);
@@ -888,7 +903,7 @@ function renderRezepte() {
       STATE.selectedTopf = r.taraMode ? (r.selectedTopf || "") : "";
       STATE.bruttoW = r.taraMode ? (r.bruttoW || "") : "";
       STATE.activeAnkerDbId = r.ankerDbId || null;
-      STATE.ingsBaseline = STATE.ings.map(function (i) { return { dbId: i.dbId, grams: pf(i.grams) || 0 }; });
+      STATE.ingsBaseline = STATE.ings.map(function (i) { return { id: i.id, dbId: i.dbId, grams: pf(i.grams) || 0 }; });
       STATE.tab = "rechner";
       renderApp();
     });
