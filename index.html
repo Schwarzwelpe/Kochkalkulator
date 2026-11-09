@@ -45,7 +45,7 @@ window.addEventListener("unhandledrejection", function (e) {
   showError("Fehler (Promise):", e.reason && e.reason.message ? e.reason.message : String(e.reason));
 });
 
-var APP_VERSION = "1.3.3";
+var APP_VERSION = "1.4.0";
 var DROPBOX_APP_KEY = "nns9uy3os0aolu9";
 var REDIRECT_URI = window.location.origin + window.location.pathname;
 var DATA_FILE_PATH = "/kochkalkulator-daten.json";
@@ -229,6 +229,7 @@ var DEFAULT_DB = [
 ];
 
 var DEFAULT_RECIPES = [];
+var DEFAULT_RATIOS = [];
 var DEFAULT_TOEPFE = [
   { id: "t1", name: "Hoffmann Topf (gro\u00df)", weight: 2503 },
   { id: "t2", name: "Hoffmann Topf (klein)", weight: 1761 },
@@ -243,6 +244,7 @@ var STATE = {
   db: [],
   recipes: [],
   toepfe: [],
+  ratios: [],
   tab: "rechner",
   ings: [{ id: cuid(), dbId: null, grams: "" }],
   extras: [],
@@ -253,10 +255,17 @@ var STATE = {
   pMode: "grams",
   pInput: "600",
   activeRecipeName: null,
-  saving: false
+  saving: false,
+  vBuilder: newVBuilder(),
+  vUseId: null,
+  vUseAmount: ""
 };
 
 function cuid() { return Date.now() + "_" + Math.random().toString(36).slice(2); }
+function newVBuilder() {
+  var row = { id: cuid(), dbId: null, grams: "" };
+  return { editId: null, name: "", rows: [row], ankerRowId: row.id };
+}
 
 // ============ DATEN LADEN / SPEICHERN (Dropbox) ============
 function loadData() {
@@ -269,17 +278,19 @@ function loadData() {
       STATE.db = DEFAULT_DB.slice();
       STATE.recipes = DEFAULT_RECIPES.slice();
       STATE.toepfe = DEFAULT_TOEPFE.slice();
+      STATE.ratios = DEFAULT_RATIOS.slice();
       return persistData();
     }
     var data = JSON.parse(text);
     STATE.db = data.db || DEFAULT_DB.slice();
     STATE.recipes = data.recipes || [];
     STATE.toepfe = data.toepfe || DEFAULT_TOEPFE.slice();
+    STATE.ratios = data.ratios || DEFAULT_RATIOS.slice();
   });
 }
 
 function persistData() {
-  var payload = JSON.stringify({ db: STATE.db, recipes: STATE.recipes, toepfe: STATE.toepfe, savedAt: new Date().toISOString() }, null, 2);
+  var payload = JSON.stringify({ db: STATE.db, recipes: STATE.recipes, toepfe: STATE.toepfe, ratios: STATE.ratios, savedAt: new Date().toISOString() }, null, 2);
   return getValidAccessToken().then(function (accessToken) {
     if (!accessToken) throw new Error("Nicht angemeldet — bitte neu einloggen.");
     STATE.accessToken = accessToken;
@@ -355,8 +366,8 @@ function renderApp() {
   html += '</div>';
 
   html += '<div style="display:flex;gap:3px;background:#151922;border-radius:9px;padding:3px;margin-bottom:14px;">';
-  ["rechner", "rezepte", "datenbank"].forEach(function (t) {
-    var label = t === "rechner" ? "Rechner" : t === "rezepte" ? "Rezepte (" + STATE.recipes.length + ")" : "DB (" + STATE.db.length + ")";
+  ["rechner", "verhaeltnis", "rezepte", "datenbank"].forEach(function (t) {
+    var label = t === "rechner" ? "Rechner" : t === "verhaeltnis" ? "Basis" : t === "rezepte" ? "Rezepte (" + STATE.recipes.length + ")" : "DB (" + STATE.db.length + ")";
     var active = STATE.tab === t;
     html += '<button class="tabBtn" data-tab="' + t + '" style="flex:1;padding:7px 4px;border:none;border-radius:7px;background:' + (active ? "#1e293b" : "transparent") + ';color:' + (active ? "#e2e8f0" : "#64748b") + ';font-size:12px;font-weight:500;">' + label + '</button>';
   });
@@ -372,6 +383,7 @@ function renderApp() {
   });
 
   if (STATE.tab === "rechner") renderRechner();
+  if (STATE.tab === "verhaeltnis") renderVerhaeltnis();
   if (STATE.tab === "rezepte") renderRezepte();
   if (STATE.tab === "datenbank") renderDatenbank();
 }
@@ -456,17 +468,19 @@ function renderRechner() {
     html += '<div style="display:flex;gap:3px;background:#0f1117;border-radius:9px;padding:3px;margin:6px 0;">';
     html += '<button id="pModeGrams" style="flex:1;padding:6px;border:none;border-radius:7px;background:' + (STATE.pMode === "grams" ? "#1e293b" : "transparent") + ';color:' + (STATE.pMode === "grams" ? "#e2e8f0" : "#64748b") + ';font-size:11px;">X Gramm</button>';
     html += '<button id="pModeKcal" style="flex:1;padding:6px;border:none;border-radius:7px;background:' + (STATE.pMode === "kcal" ? "#1e293b" : "transparent") + ';color:' + (STATE.pMode === "kcal" ? "#e2e8f0" : "#64748b") + ';font-size:11px;">X kcal frei</button>';
+    html += '<button id="pModeAnteil" style="flex:1;padding:6px;border:none;border-radius:7px;background:' + (STATE.pMode === "anteil" ? "#1e293b" : "transparent") + ';color:' + (STATE.pMode === "anteil" ? "#e2e8f0" : "#64748b") + ';font-size:11px;">X Anteil</button>';
     html += '</div>';
-    html += '<input id="pInputField" type="text" inputmode="decimal" placeholder="z.B. 600" value="' + esc(STATE.pInput) + '" style="background:#0f1117;border:1px solid #1e2433;border-radius:7px;color:#e2e8f0;font-size:14px;padding:8px;width:100%;">';
+    html += '<input id="pInputField" type="text" inputmode="decimal" placeholder="' + (STATE.pMode === "anteil" ? "z.B. 0.7" : "z.B. 600") + '" value="' + esc(STATE.pInput) + '" style="background:#0f1117;border:1px solid #1e2433;border-radius:7px;color:#e2e8f0;font-size:14px;padding:8px;width:100%;">';
 
     var val = parseFloat(STATE.pInput) || 0;
-    var pg = STATE.pMode === "grams" ? val : (per100.kcal > 0 ? val / (per100.kcal / 100) : 0);
+    var pg = STATE.pMode === "grams" ? val : STATE.pMode === "kcal" ? (per100.kcal > 0 ? val / (per100.kcal / 100) : 0) : (val * endWN);
     var ant = endWN > 0 ? Math.min(pg / endWN, 1) : 0;
     var portion = { kcal: totals.kcal * ant, protein: totals.protein * ant, carbs: totals.carbs * ant, fat: totals.fat * ant, leucin: totals.leucin * ant };
     var pgCapped = Math.min(pg, endWN);
-    html += '<div style="background:#0f1117;border-radius:8px;padding:10px;margin-top:8px;"><div style="font-size:10px;color:#4ade80;margin-bottom:4px;">\u{1F525} Aus dem Topf — ' + Math.round(pgCapped) + ' g</div>' + macroLine(portion) + '</div>';
+    var anteilVal = endWN > 0 ? pgCapped / endWN : 0;
+    html += '<div style="background:#0f1117;border-radius:8px;padding:10px;margin-top:8px;"><div style="font-size:10px;color:#4ade80;margin-bottom:4px;">\u{1F525} Aus dem Topf — ' + Math.round(pgCapped) + ' g · Anteil ' + anteilVal.toFixed(2) + '</div>' + macroLine(portion) + '</div>';
     if (pg > endWN) {
-      html += '<div style="font-size:10px;color:#fdba74;margin-top:4px;">⚠ Gewünschte kcal entsprechen ' + Math.round(pg) + 'g — mehr als die ' + Math.round(endWN) + 'g im Topf. Portion auf 100% des Topfs begrenzt.</div>';
+      html += '<div style="font-size:10px;color:#fdba74;margin-top:4px;">⚠ Gewünschte Menge entspricht ' + Math.round(pg) + 'g — mehr als die ' + Math.round(endWN) + 'g im Topf. Portion auf 100% des Topfs begrenzt.</div>';
     }
 
     window._portionCache = portion;
@@ -603,6 +617,8 @@ function wireRechnerEvents() {
   if (pModeGrams) pModeGrams.addEventListener("click", function () { STATE.pMode = "grams"; renderRechner(); });
   var pModeKcal = document.getElementById("pModeKcal");
   if (pModeKcal) pModeKcal.addEventListener("click", function () { STATE.pMode = "kcal"; renderRechner(); });
+  var pModeAnteil = document.getElementById("pModeAnteil");
+  if (pModeAnteil) pModeAnteil.addEventListener("click", function () { STATE.pMode = "anteil"; renderRechner(); });
 
   var pInputField = document.getElementById("pInputField");
   if (pInputField) pInputField.addEventListener("input", function () {
@@ -673,7 +689,7 @@ function recipePortionStats(r) {
     var per100 = { kcal: rawTotals.kcal / endWN * 100, protein: rawTotals.protein / endWN * 100, carbs: rawTotals.carbs / endWN * 100, fat: rawTotals.fat / endWN * 100 };
     var pMode = r.pMode || "grams";
     var val = parseFloat(r.pInput) || 0;
-    var pg = pMode === "grams" ? val : (per100.kcal > 0 ? val / (per100.kcal / 100) : 0);
+    var pg = pMode === "grams" ? val : pMode === "kcal" ? (per100.kcal > 0 ? val / (per100.kcal / 100) : 0) : (val * endWN);
     var ant = Math.min(pg / endWN, 1);
     var big = {
       kcal: rawTotals.kcal * ant + extrasTotals.kcal,
@@ -682,7 +698,9 @@ function recipePortionStats(r) {
       fat: rawTotals.fat * ant + extrasTotals.fat,
       leucin: rawTotals.leucin * ant + extrasTotals.leucin
     };
-    return { big: big, label: "Portion \u00b7 " + Math.round(pg) + "g" };
+    var pgCappedR = Math.min(pg, endWN);
+    var anteilR = endWN > 0 ? pgCappedR / endWN : 0;
+    return { big: big, label: "Portion \u00b7 " + Math.round(pgCappedR) + "g \u00b7 Anteil " + anteilR.toFixed(2) };
   }
   if (rawG > 0 && rawTotals.kcal > 0) {
     var per100raw = {
@@ -740,6 +758,208 @@ function renderRezepte() {
 }
 
 // ============ TAB: DATENBANK ============
+// ============ TAB: VERHAELTNIS-VORLAGEN ============
+function renderVerhaeltnis() {
+  var sortedDb = STATE.db.slice().sort(function (a, b) { return a.name.localeCompare(b.name); });
+  var b = STATE.vBuilder;
+
+  var html = '<div style="background:#151922;border:1px solid #1e2433;border-radius:10px;padding:12px;margin-bottom:12px;">';
+  html += '<div style="font-size:11px;font-weight:600;color:#60a5fa;margin-bottom:8px;">⚖️ ' + (b.editId ? "Vorlage bearbeiten" : "Neue Verhältnis-Vorlage") + '</div>';
+  html += '<input id="vName" placeholder="Name, z.B. Rührei" value="' + esc(b.name) + '" style="background:#0f1117;border:1px solid #1e2433;border-radius:7px;color:#e2e8f0;padding:8px;width:100%;margin-bottom:8px;">';
+  html += '<div style="font-size:10px;color:#64748b;margin-bottom:6px;">Referenzmengen eintragen, eine Zutat als Anker markieren (★). Beim Benutzen skalierst du alles anhand dieser Anker-Zutat.</div>';
+  b.rows.forEach(function (row) {
+    var isAnker = b.ankerRowId === row.id;
+    html += '<div style="display:grid;grid-template-columns:28px 1fr 70px 32px;gap:6px;align-items:center;margin-bottom:6px;">';
+    html += '<button class="vAnkerBtn" data-id="' + row.id + '" style="background:' + (isAnker ? "#d97706" : "transparent") + ';border:1px solid #334155;border-radius:6px;color:' + (isAnker ? "#fff" : "#64748b") + ';height:36px;">★</button>';
+    html += '<select class="vRowSelect" data-id="' + row.id + '" style="background:#0f1117;border:1px solid #1e2433;border-radius:7px;color:#e2e8f0;font-size:14px;padding:8px;">';
+    html += '<option value="">-- Zutat --</option>';
+    sortedDb.forEach(function (e) {
+      html += '<option value="' + e.id + '"' + (row.dbId === e.id ? " selected" : "") + '>' + esc(e.name) + '</option>';
+    });
+    html += '</select>';
+    html += '<input class="vRowGrams" data-id="' + row.id + '" type="text" inputmode="decimal" placeholder="g" value="' + esc(row.grams) + '" style="background:#0f1117;border:1px solid #1e2433;border-radius:7px;color:#e2e8f0;font-size:14px;padding:8px;width:100%;">';
+    html += '<button class="vRowRm" data-id="' + row.id + '" style="background:transparent;border:1px solid #334155;border-radius:6px;color:#94a3b8;height:36px;">✕</button>';
+    html += '</div>';
+  });
+  html += '<button id="vAddRowBtn" style="width:100%;background:transparent;border:1px solid #334155;color:#94a3b8;border-radius:7px;padding:9px;margin-bottom:8px;">+ Zutat</button>';
+  html += '<div style="display:flex;gap:8px;">';
+  html += '<button id="vSaveBtn" style="flex:1;background:#2563eb;color:#fff;border:none;border-radius:7px;padding:10px;font-weight:500;">' + (b.editId ? "✔ Aktualisieren" : "✔ Vorlage speichern") + '</button>';
+  if (b.editId) html += '<button id="vCancelEditBtn" style="background:transparent;border:1px solid #334155;color:#94a3b8;border-radius:7px;padding:10px 14px;">Abbrechen</button>';
+  html += '</div>';
+  html += '<div id="vSaveMsg" style="font-size:12px;margin-top:8px;"></div>';
+  html += '</div>';
+
+  html += '<div style="background:#151922;border:1px solid #1e2433;border-radius:10px;padding:12px;">';
+  html += '<div style="font-size:10px;text-transform:uppercase;color:#64748b;margin-bottom:8px;">Vorlagen (' + STATE.ratios.length + ')</div>';
+  if (STATE.ratios.length === 0) html += '<div style="font-size:12px;color:#475569;">Noch keine Verhältnis-Vorlagen angelegt.</div>';
+  STATE.ratios.forEach(function (tpl) {
+    var anker = tpl.items.find(function (it) { return it.dbId === tpl.ankerDbId; });
+    var ankerRef = anker ? STATE.db.find(function (e) { return e.id === anker.dbId; }) : null;
+    var baseAnker = anker ? (parseFloat(anker.grams) || 0) : 0;
+    var isOpen = STATE.vUseId === tpl.id;
+
+    html += '<div style="border-bottom:1px solid #1e2433;padding:10px 0;">';
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;">';
+    html += '<div><div style="font-size:13px;font-weight:500;">' + esc(tpl.name) + '</div>';
+    html += '<div style="font-size:10px;color:#64748b;">' + tpl.items.length + ' Zutaten · Anker: ' + (ankerRef ? esc(ankerRef.name) : "?") + '</div></div>';
+    html += '<div style="display:flex;gap:6px;flex-shrink:0;">';
+    html += '<button class="vUseBtn" data-id="' + tpl.id + '" style="background:' + (isOpen ? "#1e293b" : "transparent") + ';border:1px solid #334155;color:#e2e8f0;border-radius:6px;padding:6px 10px;font-size:11px;">' + (isOpen ? "Schließen" : "Benutzen") + '</button>';
+    html += '<button class="vEditBtn" data-id="' + tpl.id + '" style="background:transparent;border:1px solid #334155;color:#94a3b8;border-radius:6px;padding:6px 8px;font-size:11px;">✎</button>';
+    html += '<button class="vDelBtn" data-id="' + tpl.id + '" style="background:transparent;border:1px solid #334155;color:#94a3b8;border-radius:6px;padding:6px 8px;font-size:11px;">✕</button>';
+    html += '</div></div>';
+
+    if (isOpen) {
+      var newAmount = parseFloat(STATE.vUseAmount) || 0;
+      var factor = baseAnker > 0 ? newAmount / baseAnker : 0;
+      var scaledTotal = 0;
+      html += '<div style="background:#0f1117;border-radius:8px;padding:10px;margin-top:8px;">';
+      html += '<div style="font-size:11px;color:#64748b;margin-bottom:6px;">Neue Menge »' + (ankerRef ? esc(ankerRef.name) : "Anker") + '« (g) — Referenz: ' + baseAnker + 'g</div>';
+      html += '<input id="vUseAmountInput" type="text" inputmode="decimal" placeholder="' + baseAnker + '" value="' + esc(STATE.vUseAmount) + '" style="background:#151922;border:1px solid #1e2433;border-radius:7px;color:#e2e8f0;font-size:14px;padding:8px;width:100%;margin-bottom:8px;">';
+
+      tpl.items.forEach(function (it) {
+        var ref = STATE.db.find(function (e) { return e.id === it.dbId; });
+        var baseG = parseFloat(it.grams) || 0;
+        var scaledG = baseG * factor;
+        scaledTotal += scaledG;
+        html += '<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;font-family:monospace;">';
+        html += '<span style="color:' + (it.dbId === tpl.ankerDbId ? "#fbbf24" : "#cbd5e1") + ';">' + (it.dbId === tpl.ankerDbId ? "★ " : "") + esc(ref ? ref.name : "?") + '</span>';
+        html += '<span>' + Math.round(scaledG) + ' g</span>';
+        html += '</div>';
+      });
+      html += '<div style="border-top:1px solid #1e2433;margin-top:6px;padding-top:6px;font-size:12px;font-weight:600;display:flex;justify-content:space-between;"><span>Gesamt roh</span><span>' + Math.round(scaledTotal) + ' g</span></div>';
+      html += '<button class="vApplyBtn" data-id="' + tpl.id + '" style="width:100%;margin-top:10px;background:#059669;color:#fff;border:none;border-radius:7px;padding:10px;font-weight:500;">→ In Rechner übernehmen</button>';
+      html += '</div>';
+    }
+    html += '</div>';
+  });
+  html += '</div>';
+
+  document.getElementById("tabContent").innerHTML = html;
+  wireVerhaeltnisEvents();
+}
+
+function wireVerhaeltnisEvents() {
+  var b = STATE.vBuilder;
+  var nameInput = document.getElementById("vName");
+  if (nameInput) nameInput.addEventListener("input", function () {
+    b.name = nameInput.value;
+    var cursorPos = nameInput.selectionStart;
+    renderVerhaeltnis();
+    refocus("#vName", cursorPos);
+  });
+
+  document.querySelectorAll(".vAnkerBtn").forEach(function (btn) {
+    btn.addEventListener("click", function () { b.ankerRowId = btn.dataset.id; renderVerhaeltnis(); });
+  });
+  document.querySelectorAll(".vRowSelect").forEach(function (sel) {
+    sel.addEventListener("change", function () {
+      var row = b.rows.find(function (r) { return r.id === sel.dataset.id; });
+      row.dbId = sel.value ? parseInt(sel.value, 10) : null;
+      renderVerhaeltnis();
+    });
+  });
+  document.querySelectorAll(".vRowGrams").forEach(function (inp) {
+    inp.addEventListener("input", function () {
+      var row = b.rows.find(function (r) { return r.id === inp.dataset.id; });
+      row.grams = inp.value;
+      var cursorPos = inp.selectionStart;
+      renderVerhaeltnis();
+      refocus('.vRowGrams[data-id="' + row.id + '"]', cursorPos);
+    });
+  });
+  document.querySelectorAll(".vRowRm").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      b.rows = b.rows.filter(function (r) { return r.id !== btn.dataset.id; });
+      if (b.ankerRowId === btn.dataset.id) b.ankerRowId = b.rows.length ? b.rows[0].id : null;
+      if (b.rows.length === 0) b.rows = [{ id: cuid(), dbId: null, grams: "" }];
+      renderVerhaeltnis();
+    });
+  });
+  var addRowBtn = document.getElementById("vAddRowBtn");
+  if (addRowBtn) addRowBtn.addEventListener("click", function () {
+    var newRow = { id: cuid(), dbId: null, grams: "" };
+    b.rows.push(newRow);
+    if (!b.ankerRowId) b.ankerRowId = newRow.id;
+    renderVerhaeltnis();
+  });
+
+  var saveBtn = document.getElementById("vSaveBtn");
+  if (saveBtn) saveBtn.addEventListener("click", function () {
+    var name = (b.name || "").trim();
+    var items = b.rows.filter(function (r) { return r.dbId && parseFloat(r.grams) > 0; }).map(function (r) { return { dbId: r.dbId, grams: parseFloat(r.grams) }; });
+    var ankerRow = b.rows.find(function (r) { return r.id === b.ankerRowId; });
+    var msg = document.getElementById("vSaveMsg");
+    if (!name) { msg.textContent = "Bitte einen Namen eintragen."; msg.style.color = "#f87171"; return; }
+    if (items.length < 2) { msg.textContent = "Mindestens 2 Zutaten mit Menge eintragen."; msg.style.color = "#f87171"; return; }
+    if (!ankerRow || !ankerRow.dbId) { msg.textContent = "Bitte eine Anker-Zutat markieren (★)."; msg.style.color = "#f87171"; return; }
+
+    var tpl = { id: b.editId || cuid(), name: name, ankerDbId: ankerRow.dbId, items: items };
+    if (b.editId) {
+      STATE.ratios = STATE.ratios.map(function (t) { return t.id === b.editId ? tpl : t; });
+    } else {
+      STATE.ratios.push(tpl);
+    }
+    STATE.vBuilder = newVBuilder();
+    persistData().then(renderVerhaeltnis).catch(function (e) {
+      var m = document.getElementById("vSaveMsg");
+      if (m) { m.textContent = "Fehler: " + e.message; m.style.color = "#f87171"; }
+    });
+  });
+  var cancelBtn = document.getElementById("vCancelEditBtn");
+  if (cancelBtn) cancelBtn.addEventListener("click", function () { STATE.vBuilder = newVBuilder(); renderVerhaeltnis(); });
+
+  document.querySelectorAll(".vUseBtn").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      STATE.vUseId = STATE.vUseId === btn.dataset.id ? null : btn.dataset.id;
+      STATE.vUseAmount = "";
+      renderVerhaeltnis();
+    });
+  });
+  document.querySelectorAll(".vEditBtn").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var tpl = STATE.ratios.find(function (t) { return t.id === btn.dataset.id; });
+      if (!tpl) return;
+      var rows = tpl.items.map(function (it) { return { id: cuid(), dbId: it.dbId, grams: String(it.grams) }; });
+      var ankerIdx = tpl.items.findIndex(function (it) { return it.dbId === tpl.ankerDbId; });
+      STATE.vBuilder = { editId: tpl.id, name: tpl.name, rows: rows, ankerRowId: ankerIdx >= 0 ? rows[ankerIdx].id : (rows[0] ? rows[0].id : null) };
+      renderVerhaeltnis();
+      window.scrollTo(0, 0);
+    });
+  });
+  document.querySelectorAll(".vDelBtn").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      STATE.ratios = STATE.ratios.filter(function (t) { return t.id !== btn.dataset.id; });
+      if (STATE.vUseId === btn.dataset.id) STATE.vUseId = null;
+      persistData().then(renderVerhaeltnis);
+    });
+  });
+
+  var useAmountInput = document.getElementById("vUseAmountInput");
+  if (useAmountInput) useAmountInput.addEventListener("input", function () {
+    STATE.vUseAmount = useAmountInput.value;
+    var cursorPos = useAmountInput.selectionStart;
+    renderVerhaeltnis();
+    refocus("#vUseAmountInput", cursorPos);
+  });
+
+  document.querySelectorAll(".vApplyBtn").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var tpl = STATE.ratios.find(function (t) { return t.id === btn.dataset.id; });
+      if (!tpl) return;
+      var anker = tpl.items.find(function (it) { return it.dbId === tpl.ankerDbId; });
+      var baseAnker = anker ? (parseFloat(anker.grams) || 0) : 0;
+      var newAmount = parseFloat(STATE.vUseAmount) || baseAnker;
+      var factor = baseAnker > 0 ? newAmount / baseAnker : 0;
+      STATE.ings = tpl.items.map(function (it) {
+        return { id: cuid(), dbId: it.dbId, grams: String(Math.round((parseFloat(it.grams) || 0) * factor * 10) / 10) };
+      });
+      STATE.activeRecipeName = null;
+      STATE.tab = "rechner";
+      renderApp();
+    });
+  });
+}
+
 function renderDatenbank() {
   var sortedDb = STATE.db.slice().sort(function (a, b) { return a.name.localeCompare(b.name); });
   var html = '<div style="background:#151922;border:1px solid #1e2433;border-radius:10px;padding:12px;margin-bottom:12px;">';
