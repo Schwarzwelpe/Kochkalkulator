@@ -45,7 +45,7 @@ window.addEventListener("unhandledrejection", function (e) {
   showError("Fehler (Promise):", e.reason && e.reason.message ? e.reason.message : String(e.reason));
 });
 
-var APP_VERSION = "1.5.7";
+var APP_VERSION = "1.5.8";
 var DROPBOX_APP_KEY = "nns9uy3os0aolu9";
 var REDIRECT_URI = window.location.origin + window.location.pathname;
 var DATA_FILE_PATH = "/kochkalkulator-daten.json";
@@ -474,12 +474,21 @@ function renderRechner() {
   }, 0);
   var panExtrasTot = sumM(panExtras);
   var panTotals = { kcal: totals.kcal + panExtrasTot.kcal, protein: totals.protein + panExtrasTot.protein, carbs: totals.carbs + panExtrasTot.carbs, fat: totals.fat + panExtrasTot.fat, leucin: totals.leucin + panExtrasTot.leucin };
-  var expectedPan = rawG + panExtrasW;
+  var hasGarIng = STATE.ings.some(function (i) { return i.dbId && garFactor(STATE.db.find(function (e) { return e.id === i.dbId; })) > 0; });
+  var expectedIngs = STATE.ings.reduce(function (s, i) {
+    var g = pf(i.grams) || 0;
+    var ref = i.dbId ? STATE.db.find(function (e) { return e.id === i.dbId; }) : null;
+    var f = garFactor(ref);
+    if (f > 0) return s + g * f;
+    if (hasGarIng && ref && !ref.kcal && !ref.protein && !ref.carbs && !ref.fat) return s;
+    return s + g;
+  }, 0);
+  var expectedPan = expectedIngs + panExtrasW;
 
   var topfGewicht = STATE.selectedTopf ? (STATE.toepfe.find(function (t) { return t.id === STATE.selectedTopf; }) || {}).weight || 0 : 0;
   var endWN = STATE.taraMode ? Math.max(0, (pf(STATE.bruttoW) || 0) - topfGewicht) : (pf(STATE.endW) || 0);
   var hasGar = STATE.ings.some(function (i) { return i.dbId && garFactor(STATE.db.find(function (e) { return e.id === i.dbId; })) > 0; });
-  var weightWarning = endWN > 0 && expectedPan > 0 && endWN >= expectedPan && !hasGar;
+  var weightWarning = endWN > 0 && expectedPan > 0 && endWN >= expectedPan && !hasGar && !hasGarIng;
 
   window._antShared = 0;
   var html = '<div style="background:#151922;border:1px solid #1e2433;border-radius:10px;padding:12px;margin-bottom:12px;">';
@@ -521,7 +530,14 @@ function renderRechner() {
     html += '<div style="background:#2b1a0c;border:1px solid #92400e;color:#fdba74;border-radius:7px;padding:8px 12px;font-size:12px;margin-top:8px;">\u26a0 Fertiggewicht (' + Math.round(endWN) + 'g) \u2265 Rohgewicht (' + Math.round(expectedPan) + 'g). Bitte pr\u00fcfen.</div>';
   } else if (endWN > 0 && expectedPan > 0) {
     var chg = Math.round((endWN / expectedPan - 1) * 100);
-    html += '<div style="font-size:10px;color:#64748b;margin-top:4px;">' + (chg >= 0 ? 'Gewichtszunahme (Quellung): +' + chg : 'Gewichtsverlust: ' + (-chg)) + '%' + (panExtras.length ? ' (Basis: Zutaten ' + Math.round(rawG) + ' g + Pfannen-Beilagen gekocht ' + Math.round(panExtrasW) + ' g)' : '') + '</div>';
+    if (hasGarIng) {
+      var dev = Math.round(endWN - expectedPan);
+      var bad = Math.abs(chg) > 8;
+      html += '<div style="font-size:11px;color:' + (bad ? '#fdba74' : '#86efac') + ';margin-top:6px;">' + (bad ? '\u26a0 ' : '\u2713 ') + 'Erwartet nach Garfaktor: ' + Math.round(expectedPan) + ' g \u00b7 Abweichung ' + (dev >= 0 ? '+' : '') + dev + ' g (' + (chg >= 0 ? '+' : '') + chg + '%)' + (bad ? ' \u2013 Garfaktor oder Wiegung pr\u00fcfen' : '') + '</div>';
+      html += '<div style="font-size:10px;color:#64748b;margin-top:2px;">Zutaten mit Garfaktor z\u00e4hlen gekocht, Wasser und Salz sind darin enthalten.</div>';
+    } else {
+      html += '<div style="font-size:10px;color:#64748b;margin-top:4px;">' + (chg >= 0 ? 'Gewichtszunahme (Quellung): +' + chg : 'Gewichtsverlust: ' + (-chg)) + '%' + (panExtras.length ? ' (Basis: Zutaten ' + Math.round(rawG) + ' g + Pfannen-Beilagen gekocht ' + Math.round(panExtrasW) + ' g)' : '') + '</div>';
+    }
   }
 
   if (endWN > 0 && panTotals.kcal > 0) {
